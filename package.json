@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc --noEmit -p app && vite build",
+    "build": "tsc --noEmit -p . && vite build",
     "preview": "vite preview --host",
     "e2e": "tsx scripts/e2e.ts"
   },
