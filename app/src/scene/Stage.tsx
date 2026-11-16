@@ -182,10 +182,12 @@ function Table() {
 }
 
 function CameraRig({ focus }: { focus: boolean }) {
-  const { camera, pointer } = useThree();
+  const { camera, pointer, size } = useThree();
+  // portrait screens: step back so the whole arc of spots fits
+  const k = Math.max(1, Math.min(2.8, 1.55 / (size.width / size.height)));
   const look = useMemo(() => new THREE.Vector3(0, 0.6, 0), []);
   useFrame(() => {
-    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.8, 4.6) : new THREE.Vector3(pointer.x * 0.35, 1.9, 4.7);
+    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.8 * k, 4.6 * k) : new THREE.Vector3(pointer.x * 0.35, 1.9 * k, 4.7 * k);
     camera.position.lerp(want, 0.04);
     look.lerp(focus ? new THREE.Vector3(0, 0.95, 0.2) : new THREE.Vector3(0, 0.62, -0.7), 0.05);
     camera.lookAt(look);
