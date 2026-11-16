@@ -156,9 +156,24 @@ export function OnboardModal() {
       detail: `For account rent on Solana. You have ${s.sol.toFixed(3)} SOL.`,
       done: r.sol,
       action: (
-        <a className="btn sm" href={`https://faucet.solana.com/?address=${c.me.toBase58()}`} target="_blank" rel="noreferrer">
-          Faucet ↗
-        </a>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            className="btn sm"
+            disabled={!!busy}
+            onClick={() =>
+              step("sol", "Airdrop", async () => {
+                const sig = await c.base.requestAirdrop(c.me, 1_000_000_000);
+                await wait(async () => (await c.base.getBalance(c.me)) > 10_000_000);
+                return sig;
+              })
+            }
+          >
+            {busy === "sol" ? "Airdropping…" : "Airdrop 1 SOL"}
+          </button>
+          <a className="btn sm ghost" href={`https://faucet.solana.com/?address=${c.me.toBase58()}`} target="_blank" rel="noreferrer" title="If the airdrop is rate-limited">
+            ↗
+          </a>
+        </div>
       ),
     },
     {
