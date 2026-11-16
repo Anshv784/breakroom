@@ -57,7 +57,7 @@
 .pull-banner {
   position: absolute;
   left: 50%;
-  bottom: 70px;
+  bottom: 22px;
   transform: translateX(-50%);
   z-index: 6;
   text-align: center;

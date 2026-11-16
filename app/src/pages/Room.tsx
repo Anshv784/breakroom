@@ -167,7 +167,7 @@ function Market({ b, names, selected, setSelected, cards }: { b: BreakState; nam
               <span className="mono faint">{s + 1}</span>
               <span className="owner">
                 {owner ? names(owner) : <span className="up">open</span>}
-                {o.hasChase && <span className="chip" style={{ height: 18, marginLeft: 6, color: "var(--tier-4)" }}>chase</span>}
+                {o.hasChase && <span title="Pulled the chase" style={{ marginLeft: 6, color: "var(--tier-4)" }}>★</span>}
               </span>
               <span className="mono">{o.sealed === 0 ? <span className="faint">opened</span> : pct(o.chaseOdds)}</span>
               <span className={`mono ${evDelta >= 0 ? "up" : "down"}`}>{usd(o.ev, 0)}</span>
@@ -390,12 +390,26 @@ function Controls({ b }: { b: BreakState }) {
     body = <button className="btn lg" style={{ width: "100%" }} disabled={busy || !c} onClick={() => act("Seeded inside the TEE", () => c!.sendSession([c!.fallbackShuffleIx(b.breakId)]))}>VRF is late — seed inside the TEE</button>;
   else if (revealLate)
     body = <button className="btn lg" style={{ width: "100%" }} disabled={busy || !c} onClick={() => act("Next card", () => c!.sendSession([c!.revealIx(b.breakId)]))}>Crank is slow — reveal next card</button>;
-  else if (b.status === ST.ENDED && !receipt?.settled)
+  else if (b.status === ST.ENDED && !receipt?.settled) {
+    const stuck = now / 1000 > b.endedAt + 60;
     body = (
-      <button className="btn primary lg" style={{ width: "100%" }} disabled={busy || !c} onClick={() => act("Settling on Solana", () => c!.sendSession([c!.finishIx(b.breakId)]))}>
-        Unseal + settle on Solana
-      </button>
+      <div style={{ display: "grid", gap: 8 }}>
+        <div className="muted" style={{ fontSize: 13 }}>
+          <span className="chip live" style={{ marginRight: 8 }}><span className="dot" />settling</span>
+          The crank unsealed the Deck and is committing the result to Solana.
+        </div>
+        {stuck && (
+          <button className="btn" disabled={busy} onClick={() => act("Settlement re-sent", async () => {
+            const k = c ?? readerClient();
+            if (b.settleSent) await k.sendSession([k.rearmSettleIx(b.breakId)]);
+            await k.sendSession([k.finishIx(b.breakId)]);
+          })}>
+            Re-send settlement
+          </button>
+        )}
+      </div>
     );
+  }
   else if (receipt?.settled)
     body = (
       <div style={{ display: "grid", gap: 8 }}>

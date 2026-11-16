@@ -52,13 +52,15 @@ export function useBreak(id: bigint) {
     let alive = true;
     let sub: number | null = null;
     let conn: Awaited<ReturnType<BreakroomClient["teeSession"]>> | null = null;
+    last.current = "";
     const apply = (data: Uint8Array) => {
-      const key = Buffer.from(data.subarray(0, 64)).toString("hex") + data.length + Buffer.from(data).toString("base64").length;
+      if (!alive) return;
       const next = decodeBreak(data);
-      const sig = `${next.status}|${next.cursor}|${next.nTrades}|${next.sold}|${next.ask.join(",")}|${next.bid.join(",")}|${next.spotOwner.map((x) => x?.toBase58() ?? "").join(",")}|${next.reserveUntil.join(",")}`;
-      if (sig === last.current && key) return;
+      // skip re-renders when nothing a viewer can see has changed
+      const sig = `${next.status}|${next.cursor}|${next.nTrades}|${next.sold}|${next.ask.join(",")}|${next.bid.join(",")}|${next.spotOwner.map((x) => x?.toBase58() ?? "").join(",")}|${next.reserveUntil.join(",")}|${next.nextRevealMs}`;
+      if (sig === last.current) return;
       last.current = sig;
-      if (alive) setB(next);
+      setB(next);
     };
     const poll = async () => {
       try {

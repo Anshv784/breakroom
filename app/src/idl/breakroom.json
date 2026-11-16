@@ -981,6 +981,213 @@
       "args": []
     },
     {
+      "name": "demo_card",
+      "docs": [
+        "Devnet: mint yourself an appraised Genesis card to host with."
+      ],
+      "discriminator": [
+        96,
+        215,
+        11,
+        213,
+        171,
+        30,
+        204,
+        104
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  109,
+                  111
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "card",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "quota",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  109,
+                  111,
+                  113
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nonce",
+          "type": "u32"
+        },
+        {
+          "name": "tier",
+          "type": "u8"
+        },
+        {
+          "name": "art",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "deposit_card",
       "discriminator": [
         221,
@@ -1441,11 +1648,6 @@
         37
       ],
       "accounts": [
-        {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
         {
           "name": "brk",
           "writable": true,
@@ -2028,6 +2230,29 @@
           }
         }
       ]
+    },
+    {
+      "name": "rearm_settle",
+      "discriminator": [
+        15,
+        248,
+        11,
+        154,
+        28,
+        136,
+        182,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "brk",
+          "writable": true
+        },
+        {
+          "name": "deck"
+        }
+      ],
+      "args": []
     },
     {
       "name": "reveal",
@@ -2802,6 +3027,19 @@
       ]
     },
     {
+      "name": "DemoQuota",
+      "discriminator": [
+        48,
+        114,
+        224,
+        155,
+        62,
+        9,
+        24,
+        160
+      ]
+    },
+    {
       "name": "Faucet",
       "discriminator": [
         146,
@@ -3346,11 +3584,18 @@
             "type": "u8"
           },
           {
+            "name": "settle_sent",
+            "docs": [
+              "The settling commit has been sent (the crank tries every interval; only the first counts)."
+            ],
+            "type": "u8"
+          },
+          {
             "name": "_pad",
             "type": {
               "array": [
                 "u8",
-                5
+                4
               ]
             }
           }
@@ -3420,6 +3665,26 @@
           {
             "name": "appraised_at",
             "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DemoQuota",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "last",
+            "type": "i64"
+          },
+          {
+            "name": "count",
+            "type": "u32"
           },
           {
             "name": "bump",

@@ -25,26 +25,27 @@ export interface StageProps {
   onPull?: (p: { pos: number; card: number; spot: number }) => void;
 }
 
-const SHOW = new THREE.Vector3(0, 1.25, 2.1);
+const SHOW = new THREE.Vector3(0, 1.22, 1.55);
 const easeOut = (t: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
 function spotHome(s: number, n: number) {
   const span = Math.min(2.4, 0.9 + n * 0.12);
   const a = n === 1 ? 0 : -span / 2 + (span * s) / (n - 1);
   const r = 2.35;
-  return { pos: new THREE.Vector3(Math.sin(a) * r * 1.25, 0.5, -Math.cos(a) * r + 0.9), yaw: -a * 0.8 };
+  return { pos: new THREE.Vector3(Math.sin(a) * r * (n > 5 ? 0.92 : 1.1), 0.5, -Math.cos(a) * r + 0.7), yaw: -a * 0.8 };
 }
 
 /** Where card k of a spot stands once it's out: a fan in the spot's place, facing the room. */
 function fanPlace(s: number, n: number, k: number, per: number) {
   const { pos, yaw } = spotHome(s, n);
   const off = per > 1 ? k - (per - 1) / 2 : 0;
-  const width = Math.min(0.26, 0.85 / Math.max(1, per));
+  const width = Math.min(0.24, (n > 5 ? 0.5 : 0.8) / Math.max(1, per));
   const base = new THREE.Vector3(pos.x + Math.cos(yaw) * off * width, 0.38 + Math.abs(off) * -0.015, pos.z - Math.sin(yaw) * off * width + k * 0.004);
-  return { pos: base, rot: new THREE.Euler(-0.32, yaw, -off * 0.09) };
+  const sc = n > 10 ? 0.55 : n > 5 ? 0.68 : 0.9;
+  return { pos: base, rot: new THREE.Euler(-0.32, yaw, -off * 0.09), scale: new THREE.Vector3(sc, sc, sc) };
 }
 
-function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler }; seenAt: number; isLatest: boolean; big: boolean }) {
+function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean }) {
   const g = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const [glow, setGlow] = useState(big && isLatest ? 1 : 0);
@@ -54,7 +55,7 @@ function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; 
     return () => clearTimeout(t);
   }, [big, isLatest]);
   const target = useMemo(() => new THREE.Object3D(), []);
-  const from = useMemo(() => new THREE.Vector3(0, 1.0, 0.2), []);
+  const from = useMemo(() => new THREE.Vector3(0, 0.95, -0.3), []);
   useFrame(() => {
     const o = g.current;
     if (!o) return;
@@ -69,13 +70,13 @@ function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; 
       const flip = Math.PI * (1 - easeOut((age - 0.1) / 0.5));
       target.rotateY(flip);
       o.quaternion.slerp(target.quaternion, 0.35);
-      const s = (big ? 1.95 : 1.55) * (0.6 + 0.4 * t);
+      const s = (big ? 1.3 : 1.0) * (0.6 + 0.4 * t);
       o.scale.setScalar(s);
     } else {
       o.position.lerp(place.pos, seenAt > 0 ? 0.12 : 1);
       target.rotation.copy(place.rot);
       o.quaternion.slerp(target.quaternion, seenAt > 0 ? 0.12 : 1);
-      o.scale.lerp(new THREE.Vector3(0.9, 0.9, 0.9), seenAt > 0 ? 0.12 : 1);
+      o.scale.lerp(place.scale, seenAt > 0 ? 0.12 : 1);
     }
   });
   return (
@@ -108,7 +109,7 @@ function Burst({ color }: { color: string }) {
 }
 
 /** The sealed shuffle, drawn as a crystal that reflects the break's stage. */
-function DeckCore({ status, seeded }: { status: number; seeded: boolean }) {
+function DeckCore({ status, seeded, quiet }: { status: number; seeded: boolean; quiet: boolean }) {
   const m = useRef<THREE.Mesh>(null);
   const ring = useRef<THREE.Mesh>(null);
   useFrame((_, dt) => {
@@ -122,7 +123,7 @@ function DeckCore({ status, seeded }: { status: number; seeded: boolean }) {
   const color = status >= ST.ENDED ? "#4fe3a1" : status === ST.SHUFFLING ? "#ffd27a" : "#b58cff";
   const label = status >= ST.ENDED ? "VERIFIED" : status === ST.SHUFFLING ? "VRF SHUFFLE" : status === ST.LIVE ? "SEALED IN TEE" : "BOX LOCKED";
   return (
-    <group position={[0, 0.55, -1.25]} scale={0.8}>
+    <group position={[0, 0.42, 0.55]} scale={0.6}>
       <mesh ref={m}>
         <octahedronGeometry args={[0.32, 0]} />
         <meshPhysicalMaterial color={color} emissive={color} emissiveIntensity={0.9} transmission={0.6} roughness={0.15} thickness={0.5} transparent opacity={0.9} />
@@ -131,9 +132,9 @@ function DeckCore({ status, seeded }: { status: number; seeded: boolean }) {
         <torusGeometry args={[0.55, 0.012, 8, 96]} />
         <meshBasicMaterial color={color} />
       </mesh>
-      <pointLight color={color} intensity={6} distance={3} />
+      <pointLight color={color} intensity={1.6} distance={1.6} position={[0, 0.2, 0.6]} />
       <Html center position={[0, -0.78, 0]} distanceFactor={7} style={{ pointerEvents: "none" }}>
-        <div className="mono" style={{ fontSize: 11, letterSpacing: ".18em", color, whiteSpace: "nowrap", textShadow: "0 0 12px rgba(0,0,0,.9)" }}>
+        <div className="mono" style={{ fontSize: 11, letterSpacing: ".18em", color, whiteSpace: "nowrap", textShadow: "0 0 12px rgba(0,0,0,.9)", opacity: quiet ? 0 : 1, transition: "opacity .4s" }}>
           {label}
           {seeded && status === ST.LIVE ? " · VRF" : ""}
         </div>
@@ -184,9 +185,9 @@ function CameraRig({ focus }: { focus: boolean }) {
   const { camera, pointer } = useThree();
   const look = useMemo(() => new THREE.Vector3(0, 0.6, 0), []);
   useFrame(() => {
-    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.95, 4.6) : new THREE.Vector3(pointer.x * 0.35, 2.25, 5.0);
+    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.8, 4.6) : new THREE.Vector3(pointer.x * 0.35, 1.9, 4.7);
     camera.position.lerp(want, 0.04);
-    look.lerp(focus ? new THREE.Vector3(0, 1.05, 0.5) : new THREE.Vector3(0, 0.78, -0.55), 0.05);
+    look.lerp(focus ? new THREE.Vector3(0, 0.95, 0.2) : new THREE.Vector3(0, 0.62, -0.7), 0.05);
     camera.lookAt(look);
   });
   return null;
@@ -221,7 +222,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
   return (
-    <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 2.25, 5.0], fov: 40 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+    <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.9, 4.55], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
       <color attach="background" args={["#07060a"]} />
       <fog attach="fog" args={["#07060a", 6.5, 12]} />
       <ambientLight intensity={0.35} />
@@ -236,7 +237,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
           <Lightformer form="ring" intensity={1.5} color="#ffd27a" position={[0, 4, -3]} scale={3} />
         </Environment>
         <Table />
-        <DeckCore status={b.status} seeded={b.seedSource === 1} />
+        <DeckCore status={b.status} seeded={b.seedSource === 1} quiet={focus} />
         {Array.from({ length: b.nSpots }, (_, s) => {
           const posStart = s * per;
           const outCount = Array.from({ length: per }, (_, k) => b.revealed[posStart + k] >= 0).filter(Boolean).length;
@@ -250,6 +251,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
             <group key={s}>
               {!done && (
                 <PackSlot
+                  n={b.nSpots}
                   s={s}
                   art={art}
                   home={home}
@@ -260,7 +262,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
                   onClick={() => onSelect(s)}
                 />
               )}
-              <Html position={[home.pos.x, 1.18, home.pos.z - 0.05]} center distanceFactor={6} zIndexRange={[10, 0]}>
+              <Html position={[home.pos.x, b.nSpots > 5 ? 0.98 : 1.18, home.pos.z - 0.05]} center distanceFactor={b.nSpots > 5 ? 5 : 6} zIndexRange={[10, 0]}>
                 <button
                   onClick={() => onSelect(s)}
                   style={{
@@ -311,11 +313,11 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   );
 }
 
-function PackSlot({ s, art, home, opening, torn, selected, shuffling, onClick }: { s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; torn: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
+function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; torn: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
   const g = useRef<THREE.Group>(null);
   const tear = useRef(0);
   const [tearV, setTearV] = useState(0);
-  const center = useMemo(() => new THREE.Vector3(0, 0.95, 0.15), []);
+  const center = useMemo(() => new THREE.Vector3(0, 0.82, -0.45), []);
   useFrame(({ clock }, dt) => {
     const o = g.current;
     if (!o) return;
@@ -331,7 +333,7 @@ function PackSlot({ s, art, home, opening, torn, selected, shuffling, onClick }:
     const yaw = opening ? 0 : shuffling ? t * 2 + s : home.yaw;
     o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw, 0.1);
     o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? 0 : -0.18, 0.1);
-    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, opening ? 1.15 : 0.82, 0.08));
+    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, opening ? 0.85 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8, 0.08));
     const want_t = torn ? 1 : 0;
     if (Math.abs(tear.current - want_t) > 0.001) {
       tear.current = THREE.MathUtils.lerp(tear.current, want_t, Math.min(1, dt * 4));
