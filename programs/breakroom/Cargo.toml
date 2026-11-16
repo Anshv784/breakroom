@@ -1,0 +1,30 @@
+[package]
+name = "breakroom"
+version = "0.1.0"
+description = "BREAKROOM: provably fair live card breaks with a live spot market, on MagicBlock Private Ephemeral Rollups"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "breakroom"
+
+[features]
+default = []
+mainnet = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = { version = "1.0.2", features = ["init-if-needed"] }
+anchor-spl = { version = "1.0.2" }
+ephemeral-rollups-sdk = { version = "0.17.3", features = ["anchor", "access-control", "crank", "vrf"] }
+bytemuck = { version = "1.16", features = ["derive", "min_const_generics"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -1,0 +1,250 @@
+//! Accounts.
+//!
+//! A break lives in two places:
+//! * `Break` — public. Created on Solana, delegated to the TEE for the sale, the live opening and
+//!   the spot market, then committed back. Everyone can read it.
+//! * `Deck` — sealed. Created inside the TEE with a private permission and no members, it holds
+//!   the VRF output and the shuffled order of the cards. Nobody can read it, not the host and not
+//!   us, until the last card is out; then it is flipped public so anyone can re-run the shuffle.
+//!
+//! Base-layer only: `Card` (the appraisal desk's price + grade for one card NFT), `Receipt` (who
+//! gets which card, written by the post-commit Magic Action) and `Stats`.
+use anchor_lang::prelude::*;
+use bytemuck::{Pod, Zeroable};
+
+use crate::constants::*;
+
+// ---- break status ----
+/// Host is depositing cards (base layer).
+pub const ST_DRAFT: u8 = 0;
+/// Every card is in the vault and the card list is committed; spots on sale in the TEE.
+pub const ST_SELLING: u8 = 1;
+/// Sale closed, waiting for the VRF shuffle.
+pub const ST_SHUFFLING: u8 = 2;
+/// Packs opening, spot market live.
+pub const ST_LIVE: u8 = 3;
+/// Every card revealed; the Deck is public.
+pub const ST_ENDED: u8 = 4;
+/// Committed to Solana, host paid, cards claimable.
+pub const ST_SETTLED: u8 = 5;
+/// Called off before the shuffle (VRF never answered): every buyer refunded.
+pub const ST_CANCELLED: u8 = 6;
+
+// ---- card tiers ----
+pub const TIER_BASE: u8 = 0;
+pub const TIER_RARE: u8 = 1;
+pub const TIER_EPIC: u8 = 2;
+pub const TIER_LEGEND: u8 = 3;
+/// The box's headline card.
+pub const TIER_CHASE: u8 = 4;
+
+// ---- trade kinds (log) ----
+pub const TR_PRIMARY: u8 = 0;
+pub const TR_BUY_NOW: u8 = 1;
+pub const TR_BID_HIT: u8 = 2;
+pub const TR_HOST_UNSOLD: u8 = 3;
+
+/// The appraisal desk's record for one card NFT. Hosts can't write it: the price a buyer sees
+/// next to a card comes from here, not from the host's listing.
+#[account]
+#[derive(InitSpace)]
+pub struct Card {
+    pub mint: Pubkey,
+    /// Market value in USDC base units (6 decimals).
+    pub value: u64,
+    pub tier: u8,
+    /// Grade x10 (100 = gem mint 10).
+    pub grade: u8,
+    pub cert: u64,
+    pub name: [u8; 32],
+    pub set: [u8; 24],
+    /// Seeds the card's artwork on the client.
+    pub art: u32,
+    pub appraised_at: i64,
+    pub bump: u8,
+}
+
+#[zero_copy]
+#[derive(Debug)]
+pub struct Trade {
+    pub price: u64,
+    pub ts: i64,
+    pub buyer: Pubkey,
+    pub seller: Pubkey,
+    pub spot: u8,
+    pub kind: u8,
+    pub _pad: [u8; 6],
+}
+
+#[account(zero_copy)]
+pub struct Break {
+    pub break_id: u64,
+    pub spot_price: u64,
+    pub created_at: i64,
+    /// When the last spot sold (0 while some are left).
+    pub sold_out_at: i64,
+    /// Sale closed / VRF requested.
+    pub shuffle_requested_at: i64,
+    /// Earliest time the next card may be revealed.
+    pub next_reveal_ms: i64,
+    pub ended_at: i64,
+    /// USDC paid for spots and held at the desk until settlement.
+    pub escrow: u64,
+    /// Sum of open bids held at the desk.
+    pub bid_escrow: u64,
+    pub volume: u64,
+    pub fees: u64,
+    /// Total appraised value of the box.
+    pub box_value: u64,
+    pub crank_task: u64,
+
+    pub host: Pubkey,
+    pub mint: Pubkey,
+    /// sha256 over every card mint + appraised value, fixed before a single spot sells.
+    pub commitment: [u8; 32],
+
+    pub cards: [Pubkey; MAX_CARDS],
+    pub card_value: [u64; MAX_CARDS],
+    pub card_tier: [u8; MAX_CARDS],
+    /// Position -> card index + 1 (0 = still sealed). Position p belongs to spot p / per_spot.
+    pub revealed: [u8; MAX_CARDS],
+
+    pub spot_owner: [Pubkey; MAX_SPOTS],
+    /// What the current owner paid for the spot (for P&L in the UI).
+    pub spot_cost: [u64; MAX_SPOTS],
+    /// 0 = not listed.
+    pub ask: [u64; MAX_SPOTS],
+    pub bid: [u64; MAX_SPOTS],
+    pub bidder: [Pubkey; MAX_SPOTS],
+    pub last_price: [u64; MAX_SPOTS],
+    /// Order in which spots open (from the VRF output; public once the shuffle lands).
+    pub open_order: [u8; MAX_SPOTS],
+
+    pub trades: [Trade; TRADE_LOG],
+
+    pub title: [u8; 48],
+    pub n_spots: u8,
+    pub per_spot: u8,
+    pub n_cards: u8,
+    pub deposited: u8,
+    pub status: u8,
+    pub sold: u8,
+    /// Cards revealed so far.
+    pub cursor: u8,
+    pub trade_head: u8,
+    pub n_trades: u32,
+    pub reveal_ms: u32,
+    pub bump: u8,
+    pub vault_bump: u8,
+    pub _pad: [u8; 6],
+}
+
+impl Break {
+    pub fn cards_total(&self) -> usize {
+        self.n_spots as usize * self.per_spot as usize
+    }
+
+    /// Spot a sealed position belongs to.
+    pub fn spot_of(&self, pos: usize) -> usize {
+        pos / self.per_spot as usize
+    }
+
+    /// The position revealed at step `k` of the opening: spots open in `open_order`, cards
+    /// inside a spot in order.
+    pub fn position_at(&self, k: usize) -> usize {
+        let per = self.per_spot as usize;
+        self.open_order[k / per] as usize * per + k % per
+    }
+
+    /// A spot stops trading as soon as its own pack starts opening.
+    pub fn spot_locked(&self, spot: usize) -> bool {
+        match self.status {
+            ST_SELLING | ST_SHUFFLING => false,
+            ST_LIVE => {
+                let per = self.per_spot as usize;
+                // pack i of the opening has started once its first card is out
+                (0..self.n_spots as usize).any(|i| i * per < self.cursor as usize && self.open_order[i] as usize == spot)
+            }
+            _ => true,
+        }
+    }
+
+    pub fn log(&mut self, spot: u8, kind: u8, price: u64, buyer: Pubkey, seller: Pubkey, ts: i64) {
+        let i = self.trade_head as usize % TRADE_LOG;
+        self.trades[i] = Trade { price, ts, buyer, seller, spot, kind, _pad: [0; 6] };
+        self.trade_head = ((i + 1) % TRADE_LOG) as u8;
+        self.n_trades = self.n_trades.saturating_add(1);
+    }
+}
+
+pub const DECK_MAGIC: u32 = 0x4b434544; // "DECK"
+
+/// Sealed inside the TEE until the last card is out.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct Deck {
+    pub magic: u32,
+    pub seeded: u32,
+    pub break_id: u64,
+    /// Raw VRF output.
+    pub randomness: [u8; 32],
+    /// Position -> card index.
+    pub order: [u8; MAX_CARDS],
+}
+pub const DECK_LEN: usize = core::mem::size_of::<Deck>();
+
+/// Base layer. Written by the post-commit Magic Action once the break has ended: which wallet
+/// receives each card. `claim` reads only this, so cards can be delivered while the Break stays
+/// delegated.
+#[account(zero_copy)]
+pub struct Receipt {
+    pub break_id: u64,
+    pub host_paid: u64,
+    pub settled_at: i64,
+    pub host: Pubkey,
+    pub cards: [Pubkey; MAX_CARDS],
+    /// Card index -> recipient.
+    pub recipient: [Pubkey; MAX_CARDS],
+    /// Bit i = card i delivered.
+    pub claimed: u64,
+    pub n_cards: u8,
+    pub settled: u8,
+    pub bump: u8,
+    pub _pad: [u8; 5],
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Stats {
+    pub breaks: u64,
+    pub cards: u64,
+    pub primary_volume: u64,
+    pub secondary_volume: u64,
+    pub trades: u64,
+    pub fees: u64,
+    pub bump: u8,
+}
+
+/// The protocol's USDC desk: a PDA whose token account is delegated to the TEE and holds spot
+/// payments and open bids while a break runs.
+#[account]
+#[derive(InitSpace)]
+pub struct Desk {
+    pub mint: Pubkey,
+    /// Fees the protocol has earned and not yet swept (base units).
+    pub fees_owed: u64,
+    pub bump: u8,
+}
+
+/// Devnet only: when a wallet last used the test-USDC faucet.
+#[account]
+#[derive(InitSpace)]
+pub struct Faucet {
+    pub last: i64,
+    pub bump: u8,
+}
+
+pub fn read_title(t: &[u8; 48]) -> &str {
+    let n = t.iter().position(|&b| b == 0).unwrap_or(48);
+    core::str::from_utf8(&t[..n]).unwrap_or("")
+}

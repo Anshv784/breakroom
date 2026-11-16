@@ -1,0 +1,13 @@
+[toolchain]
+anchor_version = "1.1.2"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+breakroom = "7hnz4i1zaz3UPW1eNzpTonN5GeLRCyVMSnpk5tTHKzTD"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/breakroom-devnet.json"
