@@ -2367,6 +2367,33 @@
           "signer": true
         },
         {
+          "name": "profile",
+          "docs": [
+            "The caller's profile (wallet or its session key): the host may start early."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
           "name": "brk",
           "writable": true,
           "pda": {
@@ -2992,6 +3019,16 @@
       "code": 6032,
       "name": "BadName",
       "msg": "Name must be 2-20 letters, numbers, _ or -"
+    },
+    {
+      "code": 6033,
+      "name": "VrfRequestFailed",
+      "msg": "The VRF request failed"
+    },
+    {
+      "code": 6034,
+      "name": "CrankFailed",
+      "msg": "Scheduling the reveal crank failed"
     }
   ],
   "types": [

@@ -1,7 +1,8 @@
 // End-to-end on devnet + the MagicBlock TEE. Grows with every feature.
 import { admin, clientFor, testKey, fund, sleep, usd, check } from "./lib";
 import { mintCard } from "./cards";
-import { breakPda, profilePda, BreakroomClient } from "../app/src/chain/client";
+import { breakPda, profilePda, ata, BreakroomClient } from "../app/src/chain/client";
+import { shuffle, commitment, hex } from "../app/src/chain/shuffle";
 import { ST } from "../app/src/chain/layout";
 
 const A = admin();
@@ -46,7 +47,7 @@ console.log("  minted", mints.length, "cards");
 const id = BigInt(Date.now());
 await H.sendBase([H.createBreakIx(id, 2, 2, 5_000_000n, 2000, "E2E Genesis Break")]);
 for (let i = 0; i < mints.length; i++) await H.sendBase([H.depositCardIx(id, i, mints[i])]);
-await H.sendBase([H.sealBreakIx(id)]);
+await H.sendBase(H.sealBreakIxs(id));
 console.log("  sealed + delegated break", id.toString(), breakPda(id).toBase58());
 await A.waitInTee(breakPda(id));
 await A.sendSession([A.openSaleIx(id, A.session.publicKey)]);
@@ -88,4 +89,53 @@ await B1.sendSession(B1.buyListedIxs(b, 0));
 b = (await A.fetchBreak(id))!;
 check(b.spotOwner[0]?.equals(B1.me) && b.trades[0].kind === 2, "buyer1 filled the accepted offer (bid hit)");
 console.log(`  volume ${usd(b.volume)} secondary ${usd(b.secondaryVolume)} fees ${usd(b.fees)} host ${usd(b.hostRevenue)}`);
+
+// 6. live: the host starts (unsold spot 1 goes to the host), VRF shuffles into the sealed Deck,
+//    the crank reveals every card
+console.log("  start", await H.sendSession([H.startBreakIx(id)]));
+b = (await A.fetchBreak(id))!;
+check(b.spotOwner[1]?.equals(H.me), "unsold spot went to the host");
+const t0 = Date.now();
+while ((b = (await A.fetchBreak(id))!).status === ST.SHUFFLING) {
+  if (Date.now() - t0 > 50_000) {
+    console.log("  VRF slow: fallback shuffle", await A.sendSession([A.fallbackShuffleIx(id)]).catch((e) => e.message));
+  }
+  await sleep(1000);
+}
+check(b.status === ST.LIVE || b.status === ST.ENDED, `shuffled after ${((Date.now() - t0) / 1000).toFixed(1)}s (seed source ${b.seedSource === 1 ? "VRF" : "TEE fallback"})`);
+check((await A.fetchDeck(id, 4)) === null, "Deck still sealed while live");
+let seen = -1;
+const t1 = Date.now();
+while ((b = (await A.fetchBreak(id))!).status === ST.LIVE) {
+  if (b.cursor !== seen) {
+    seen = b.cursor;
+    console.log(`    t+${((Date.now() - t1) / 1000).toFixed(1)}s cards out: ${b.cursor}/${b.nCards}`);
+  }
+  if (Date.now() - t1 > 60_000) await A.sendSession([A.revealIx(id)]).catch(() => {});
+  await sleep(400);
+}
+check(b.status === ST.ENDED && b.revealed.every((c) => c >= 0), "every card revealed by the crank");
+
+// 7. finish: unseal the Deck, commit + Magic Action writes the Receipt on Solana
+console.log("  finish", await A.sendSession([A.finishIx(id)]));
+const deck = (await A.fetchDeck(id, 4))!;
+check(!!deck && deck.seeded, "Deck is public after the break");
+const re = shuffle(deck.randomness, 4, 2);
+check(b.revealed.every((c, pos) => re.order[pos] === c) && re.spots.every((s, i) => s === b.openOrder[i]), "re-ran the shuffle from the seed: every position matches");
+check(hex(commitment(id, b.cards, b.cardValue)) === hex(b.commitment), "box commitment matches the cards");
+let receipt = await A.fetchReceipt(id);
+for (let i = 0; i < 60 && !receipt?.settled; i++) {
+  await sleep(1000);
+  receipt = await A.fetchReceipt(id);
+}
+check(!!receipt?.settled, "Magic Action settled the Receipt on Solana");
+
+// 8. delivery: anyone can deliver; the admin delivers all four
+for (let i = 0; i < 4; i++) await A.sendBase([A.claimIx(id, i, receipt!.cards[i], receipt!.recipient[i]!)]);
+for (let i = 0; i < 4; i++) {
+  const bal = await A.base.getTokenAccountBalance(ata(receipt!.recipient[i]!, receipt!.cards[i]));
+  if (bal.value.amount !== "1") throw new Error("card not delivered");
+}
+const owners = receipt!.recipient.map((r) => (r!.equals(H.me) ? "host" : r!.equals(B1.me) ? "buyer1" : "buyer2"));
+check(true, `cards delivered: ${owners.join(", ")}`);
 console.log("E2E OK", id.toString());

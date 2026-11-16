@@ -15,6 +15,8 @@ import {
 } from "@solana/web3.js";
 import { Buffer } from "buffer";
 import nacl from "tweetnacl";
+import bs58 from "bs58";
+const bs58encode = (b: Uint8Array) => bs58.encode(b);
 import {
   EPHEMERAL_VAULT_ID,
   MAGIC_CONTEXT_ID,
@@ -23,6 +25,8 @@ import {
   getAuthToken,
   magicFeeVaultPdaFromValidator,
   permissionPdaFromAccount,
+  createTopUpEscrowInstruction,
+  escrowPdaFromEscrowAuthority,
 } from "@magicblock-labs/ephemeral-rollups-sdk";
 import idl from "../idl/breakroom.json";
 import {
@@ -43,7 +47,7 @@ import {
   VRF_EPHEMERAL_QUEUE,
   VRF_PROGRAM,
 } from "./config";
-import { decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
+import { BREAK_LEN, decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
 
 const ns: any = anchorNs;
 const BorshCoder = ns.BorshCoder ?? ns["default"]?.BorshCoder;
@@ -355,6 +359,31 @@ export class BreakroomClient {
     return info ? decodeBreak(info.data) : null;
   }
 
+  /** Every break ever created: their Receipts stay on Solana, owned by the program. */
+  async listBreakIds(): Promise<bigint[]> {
+    const disc = (idl as any).accounts.find((a: any) => a.name === "Receipt").discriminator as number[];
+    const accs = await this.base.getProgramAccounts(PROGRAM_ID, {
+      filters: [{ memcmp: { offset: 0, bytes: bs58encode(Uint8Array.from(disc)) } }],
+      dataSlice: { offset: 8, length: 8 },
+    });
+    return accs.map((a) => Buffer.from(a.account.data).readBigUInt64LE(0)).sort((a, b) => (a < b ? 1 : -1));
+  }
+
+  /** Many breaks at once from the TEE (live state); falls back to Solana for ones not delegated. */
+  async fetchBreaks(ids: bigint[]): Promise<BreakState[]> {
+    const tee = await this.teeSession();
+    const out: BreakState[] = [];
+    for (let i = 0; i < ids.length; i += 50) {
+      const keys = ids.slice(i, i + 50).map(breakPda);
+      const [t, b] = await Promise.all([tee.getMultipleAccountsInfo(keys).catch(() => keys.map(() => null)), this.base.getMultipleAccountsInfo(keys)]);
+      keys.forEach((_, j) => {
+        const info = t[j] ?? b[j];
+        if (info && info.data.length === BREAK_LEN) out.push(decodeBreak(info.data));
+      });
+    }
+    return out;
+  }
+
   async fetchReceipt(id: bigint) {
     const info = await this.base.getAccountInfo(receiptPda(id));
     return info ? decodeReceipt(info.data) : null;
@@ -410,6 +439,12 @@ export class BreakroomClient {
         vault_card: ata(vaultPda(id), cardMint),
       },
     );
+  }
+
+  /** Seal + delegate, and fund the break's Magic Action escrow (1 lamport is enough). */
+  sealBreakIxs(id: bigint) {
+    const brk = breakPda(id);
+    return [createTopUpEscrowInstruction(escrowPdaFromEscrowAuthority(brk, 255), brk, this.me, 1, 255), this.sealBreakIx(id)];
   }
 
   sealBreakIx(id: bigint) {
@@ -524,6 +559,47 @@ export class BreakroomClient {
   listSpotIx = (id: bigint, spot: number, ask: bigint) => this.ownerIx("list_spot", id, spot, ask);
   makeOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("make_offer", id, spot, price);
   acceptOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("accept_offer", id, spot, price);
+
+  // ---------------------------------------------------------------- TEE: the live break
+
+  startBreakIx(id: bigint, payer = this.session.publicKey) {
+    return ix("start_break", { client_seed: Math.floor(Math.random() * 256) }, { payer, brk: breakPda(id), deck: deckPda(id), profile: profilePda(this.me) });
+  }
+
+  fallbackShuffleIx(id: bigint, payer = this.session.publicKey) {
+    return ix("fallback_shuffle", {}, { payer, brk: breakPda(id), deck: deckPda(id) });
+  }
+
+  revealIx(id: bigint) {
+    return ix("reveal", {}, { brk: breakPda(id), deck: deckPda(id) });
+  }
+
+  finishIx(id: bigint, payer = this.session.publicKey) {
+    const deck = deckPda(id);
+    return ix("finish", {}, {
+      payer,
+      brk: breakPda(id),
+      deck,
+      deck_permission: permissionPdaFromAccount(deck),
+      receipt: receiptPda(id),
+      stats: statsPda(),
+      magic_fee_vault: magicFeeVaultPdaFromValidator(TEE_VALIDATOR),
+    });
+  }
+
+  // ---------------------------------------------------------------- base: delivery
+
+  claimIx(id: bigint, index: number, cardMint: PublicKey, recipient: PublicKey) {
+    return ix("claim", { index }, {
+      payer: this.me,
+      receipt: receiptPda(id),
+      card_mint: cardMint,
+      recipient,
+      vault: vaultPda(id),
+      vault_card: ata(vaultPda(id), cardMint),
+      recipient_card: ata(recipient, cardMint),
+    });
+  }
 
   /** Wait until an account delegated on Solana shows up in the TEE. */
   async waitInTee(acc: PublicKey, ms = 30_000) {

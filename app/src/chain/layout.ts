@@ -85,9 +85,13 @@ export interface BreakState {
   cursor: number;
   nTrades: number;
   revealMs: number;
+  /** 1 = VRF, 2 = TEE fallback, 0 = not yet */
+  seedSource: number;
 }
 
 const orNull = (k: PublicKey) => (k.toBase58() === ZERO ? null : k);
+
+export const BREAK_LEN = 8 + L.Break.__size;
 
 export function decodeBreak(data: Uint8Array): BreakState {
   const r = new R(data);
@@ -144,6 +148,7 @@ export function decodeBreak(data: Uint8Array): BreakState {
     cursor: r.u8(o.cursor),
     nTrades,
     revealMs: r.u32(o.reveal_ms),
+    seedSource: r.u8(o.seed_source),
   };
 }
 
