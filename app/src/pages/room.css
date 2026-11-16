@@ -1,0 +1,250 @@
+.room {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  height: calc(100vh - 64px);
+  min-height: 560px;
+}
+.room-stage {
+  position: relative;
+  overflow: hidden;
+  background: #07060a;
+}
+.room-head {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  right: 220px;
+  z-index: 5;
+  pointer-events: none;
+}
+.room-head a,
+.room-head button {
+  pointer-events: auto;
+}
+.room-head h1 {
+  margin: 10px 0 4px;
+  font-size: clamp(20px, 2.4vw, 30px);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+}
+.room-clock {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 5;
+  text-align: right;
+  min-width: 140px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.clock-bar {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.clock-bar div {
+  height: 100%;
+  background: var(--foil);
+  transition: width 0.2s linear;
+}
+.mute {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  z-index: 5;
+}
+.pull-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  z-index: 6;
+  text-align: center;
+  padding: 14px 28px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.72);
+  border: 1px solid var(--tc);
+  box-shadow: 0 0 60px -10px var(--tc);
+  backdrop-filter: blur(10px);
+  animation: bannerIn 0.45s var(--ease), fade 0.6s 2.6s reverse forwards;
+}
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.96);
+  }
+}
+
+.room-side {
+  border-left: 1px solid var(--line);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.side-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 12px 0;
+}
+.side-tabs button {
+  all: unset;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.side-tabs button.on {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+.side-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+.side-foot {
+  border-top: 1px solid var(--line);
+  padding: 14px;
+}
+
+.chase-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 95, 168, 0.12), transparent);
+  border: 1px solid rgba(255, 95, 168, 0.25);
+  margin-bottom: 12px;
+}
+.chase-row img {
+  width: 44px;
+  border-radius: 5px;
+}
+
+.spot-table {
+  display: grid;
+  gap: 2px;
+}
+.spot-row {
+  all: unset;
+  display: grid;
+  grid-template-columns: 22px 1fr 58px 64px 92px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.spot-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.spot-row.sel {
+  background: rgba(181, 140, 255, 0.12);
+}
+.spot-row.mine .owner {
+  color: var(--up);
+}
+.spot-row.head {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  cursor: default;
+  padding-top: 4px;
+}
+.spot-row.head:hover {
+  background: none;
+}
+.spot-row .owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+.spot-row > span:nth-child(n + 3) {
+  text-align: right;
+}
+
+.spot-detail {
+  padding: 14px;
+  margin-bottom: 12px;
+  border-color: rgba(181, 140, 255, 0.3);
+}
+.kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.kv div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.kv span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.box-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.box-card img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+  margin-bottom: 4px;
+}
+.box-card.out img {
+  outline: 2px solid rgba(79, 227, 161, 0.55);
+}
+.box-card:not(.out) img {
+  filter: saturate(0.55) brightness(0.7);
+}
+
+.tape {
+  display: grid;
+  gap: 2px;
+}
+.tape-row {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 4px 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.tape-row > span:last-child {
+  grid-column: 2 / 4;
+  margin-top: -4px;
+}
+
+@media (max-width: 980px) {
+  .room {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .room-stage {
+    height: 62vh;
+    min-height: 420px;
+  }
+  .room-head {
+    right: 24px;
+  }
+  .room-clock {
+    top: auto;
+    bottom: 18px;
+  }
+}
