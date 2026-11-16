@@ -1,0 +1,114 @@
+//! Solana: the post-commit Magic Action records who receives each card, and anyone can then
+//! deliver the cards out of the vault.
+use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+
+use crate::constants::*;
+use crate::error::BreakError;
+use crate::state::*;
+
+/// Runs only as the Magic Action of `finish`: reads the committed Break and writes the Receipt.
+pub fn handle_settle<'info>(ctx: Context<'info, Settle<'info>>) -> Result<()> {
+    // Only the delegation program can sign for the break's action escrow, which limits this to
+    // the post-commit path. The executor appends [program, escrow_auth, escrow] after the action
+    // accounts, so scan everything past the named ones.
+    let expected = ephemeral_rollups_sdk::pda::ephemeral_balance_pda_from_payer(&ctx.accounts.brk.key(), ACTION_ESCROW_INDEX);
+    let signed = [ctx.accounts.escrow_auth.as_ref(), ctx.accounts.escrow.as_ref()]
+        .into_iter()
+        .chain(ctx.remaining_accounts.iter())
+        .any(|a| a.key() == expected && a.is_signer);
+    require!(signed, BreakError::BadAccount);
+
+    let b: Break = {
+        let data = ctx.accounts.brk.try_borrow_data()?;
+        require!(data.len() >= 8 + core::mem::size_of::<Break>(), BreakError::BadAccount);
+        *bytemuck::from_bytes::<Break>(&data[8..8 + core::mem::size_of::<Break>()])
+    };
+    let mut r = ctx.accounts.receipt.load_mut()?;
+    require!(r.break_id == b.break_id, BreakError::BadAccount);
+    if r.settled == 1 || b.status != ST_ENDED {
+        return Ok(());
+    }
+    let per = b.per_spot as usize;
+    for pos in 0..b.cards_total() {
+        let card = b.revealed[pos];
+        require!(card > 0, BreakError::WrongStage);
+        r.recipient[(card - 1) as usize] = b.spot_owner[pos / per];
+    }
+    r.host_paid = b.host_revenue;
+    r.settled = 1;
+    r.settled_at = Clock::get()?.unix_timestamp;
+
+    let st = &mut ctx.accounts.stats;
+    st.breaks += 1;
+    st.cards += b.cards_total() as u64;
+    st.primary_volume += b.volume.saturating_sub(b.secondary_volume);
+    st.secondary_volume += b.secondary_volume;
+    st.trades += b.n_trades as u64;
+    st.fees += b.fees;
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct Settle<'info> {
+    #[account(mut)]
+    pub receipt: AccountLoader<'info, Receipt>,
+    /// CHECK: the committed Break (owned by the delegation program while delegated); read raw
+    #[account(seeds = [BREAK_SEED, &receipt.load()?.break_id.to_le_bytes()], bump)]
+    pub brk: UncheckedAccount<'info>,
+    #[account(mut, seeds = [STATS_SEED], bump = stats.bump)]
+    pub stats: Account<'info, Stats>,
+    /// CHECK: escrow authority / escrow pair appended by the executor (verified in the handler)
+    pub escrow_auth: UncheckedAccount<'info>,
+    /// CHECK: see above
+    pub escrow: UncheckedAccount<'info>,
+}
+
+/// Deliver card `index` to the wallet the Receipt names. Anyone may call it (and pay the ATA
+/// rent), so cards arrive even if the winner never comes back.
+pub fn handle_claim(ctx: Context<Claim>, index: u8) -> Result<()> {
+    let (id, bit) = {
+        let r = ctx.accounts.receipt.load()?;
+        require!(r.settled == 1, BreakError::WrongStage);
+        let i = index as usize;
+        require!(i < r.n_cards as usize, BreakError::BadAccount);
+        require_keys_eq!(r.cards[i], ctx.accounts.card_mint.key(), BreakError::BadAccount);
+        require_keys_eq!(r.recipient[i], ctx.accounts.recipient.key(), BreakError::BadAccount);
+        let bit = 1u64 << i;
+        require!(r.claimed & bit == 0, BreakError::AlreadyClaimed);
+        (r.break_id, bit)
+    };
+    ctx.accounts.receipt.load_mut()?.claimed |= bit;
+    let idb = id.to_le_bytes();
+    let seeds: &[&[u8]] = &[VAULT_SEED, &idb, &[ctx.bumps.vault]];
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.key(),
+            Transfer { from: ctx.accounts.vault_card.to_account_info(), to: ctx.accounts.recipient_card.to_account_info(), authority: ctx.accounts.vault.to_account_info() },
+            &[seeds],
+        ),
+        1,
+    )
+}
+
+#[derive(Accounts)]
+pub struct Claim<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut, seeds = [RECEIPT_SEED, &receipt.load()?.break_id.to_le_bytes()], bump)]
+    pub receipt: AccountLoader<'info, Receipt>,
+    pub card_mint: Account<'info, Mint>,
+    /// CHECK: must match the Receipt
+    pub recipient: UncheckedAccount<'info>,
+    /// CHECK: vault authority PDA
+    #[account(seeds = [VAULT_SEED, &receipt.load()?.break_id.to_le_bytes()], bump)]
+    pub vault: UncheckedAccount<'info>,
+    #[account(mut, associated_token::mint = card_mint, associated_token::authority = vault)]
+    pub vault_card: Account<'info, TokenAccount>,
+    #[account(init_if_needed, payer = payer, associated_token::mint = card_mint, associated_token::authority = recipient)]
+    pub recipient_card: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}

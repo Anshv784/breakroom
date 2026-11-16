@@ -49,8 +49,13 @@ pub const MIN_SPOT_PRICE: u64 = 1_000_000;
 /// Gap between two card reveals (the crank fires this often; anyone may push a late one).
 pub const MIN_REVEAL_MS: u32 = 1_500;
 pub const MAX_REVEAL_MS: u32 = 15_000;
-/// A break whose VRF answer never arrives can be called off after this long (spots refunded).
-pub const SHUFFLE_TIMEOUT_SECS: i64 = 120;
+/// If the VRF answer hasn't arrived after this long, anyone may seed the shuffle from inside the
+/// TEE instead (still sealed from everyone; flagged as a fallback in the break's record).
+pub const SHUFFLE_TIMEOUT_SECS: i64 = 45;
+/// Pause between the shuffle landing and the first card, so everyone's camera is on the table.
+pub const INTRO_MS: i64 = 4_000;
+/// Escrow index of the post-commit settle action.
+pub const ACTION_ESCROW_INDEX: u8 = 255;
 /// Anyone may start a fully sold break this long after the last spot sold, so a host can't
 /// hold buyers' money hostage by never pressing start.
 pub const AUTO_START_SECS: i64 = 300;

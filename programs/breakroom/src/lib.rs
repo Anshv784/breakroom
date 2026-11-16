@@ -97,6 +97,38 @@ pub mod breakroom {
         instructions::sale::handle_buy_spot(ctx, spot, max_price)
     }
 
+    // ---- TEE: the live break
+
+    pub fn start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_seed: u8) -> Result<()> {
+        instructions::live::handle_start_break(ctx, client_seed)
+    }
+
+    pub fn on_shuffle(ctx: Context<OnShuffle>, randomness: [u8; 32]) -> Result<()> {
+        instructions::live::handle_on_shuffle(ctx, randomness)
+    }
+
+    pub fn fallback_shuffle(ctx: Context<FallbackShuffle>) -> Result<()> {
+        instructions::live::handle_fallback_shuffle(ctx)
+    }
+
+    pub fn reveal(ctx: Context<Reveal>) -> Result<()> {
+        instructions::live::handle_reveal(ctx)
+    }
+
+    pub fn finish(ctx: Context<Finish>) -> Result<()> {
+        instructions::live::handle_finish(ctx)
+    }
+
+    // ---- Solana: settlement (Magic Action) + delivery
+
+    pub fn settle<'info>(ctx: Context<'info, Settle<'info>>) -> Result<()> {
+        instructions::settle::handle_settle(ctx)
+    }
+
+    pub fn claim(ctx: Context<Claim>, index: u8) -> Result<()> {
+        instructions::settle::handle_claim(ctx, index)
+    }
+
     // ---- TEE: the spot market
 
     pub fn list_spot(ctx: Context<OwnerAction>, spot: u8, ask: u64) -> Result<()> {
