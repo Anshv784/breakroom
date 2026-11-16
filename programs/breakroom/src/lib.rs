@@ -55,6 +55,11 @@ pub mod breakroom {
         instructions::admin::handle_appraise(ctx, value, tier, grade, cert, name, set, art)
     }
 
+    /// Devnet: mint yourself an appraised Genesis card to host with.
+    pub fn demo_card(ctx: Context<DemoCard>, nonce: u32, tier: u8, art: u16) -> Result<()> {
+        instructions::admin::handle_demo_card(ctx, nonce, tier, art)
+    }
+
     // ---- players
 
     pub fn create_profile(ctx: Context<CreateProfile>, name: [u8; 20]) -> Result<()> {
