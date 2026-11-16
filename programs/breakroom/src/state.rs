@@ -88,10 +88,10 @@ pub struct Break {
     /// Earliest time the next card may be revealed.
     pub next_reveal_ms: i64,
     pub ended_at: i64,
-    /// USDC paid for spots and held at the desk until settlement.
-    pub escrow: u64,
-    /// Sum of open bids held at the desk.
-    pub bid_escrow: u64,
+    /// What the host has been paid for spots (net of the protocol fee). Paid instantly, buyer
+    /// to host, at the moment of each sale: the protocol never holds anyone's USDC.
+    pub host_revenue: u64,
+    pub secondary_volume: u64,
     pub volume: u64,
     pub fees: u64,
     /// Total appraised value of the box.
@@ -114,8 +114,13 @@ pub struct Break {
     pub spot_cost: [u64; MAX_SPOTS],
     /// 0 = not listed.
     pub ask: [u64; MAX_SPOTS],
+    /// Best standing offer. Offers aren't escrowed: when the owner accepts, the spot is reserved
+    /// for the bidder at that price and the bidder's session fills it.
     pub bid: [u64; MAX_SPOTS],
     pub bidder: [Pubkey; MAX_SPOTS],
+    /// Accepted offer: only this wallet may buy the spot at `ask` until `reserve_until`.
+    pub reserved: [Pubkey; MAX_SPOTS],
+    pub reserve_until: [i64; MAX_SPOTS],
     pub last_price: [u64; MAX_SPOTS],
     /// Order in which spots open (from the VRF output; public once the shuffle lands).
     pub open_order: [u8; MAX_SPOTS],
@@ -225,15 +230,26 @@ pub struct Stats {
     pub bump: u8,
 }
 
-/// The protocol's USDC desk: a PDA whose token account is delegated to the TEE and holds spot
-/// payments and open bids while a break runs.
+/// A player: display name, the session key allowed to act for them inside the TEE, and stats.
+/// Created on Solana and delegated, so binding a new session key is instant and free.
 #[account]
 #[derive(InitSpace)]
-pub struct Desk {
-    pub mint: Pubkey,
-    /// Fees the protocol has earned and not yet swept (base units).
-    pub fees_owed: u64,
+pub struct Profile {
+    pub owner: Pubkey,
+    pub agent: Pubkey,
+    pub name: [u8; 20],
+    pub spots_bought: u32,
+    pub trades: u32,
+    pub spent: u64,
+    pub earned: u64,
+    pub created_at: i64,
     pub bump: u8,
+}
+
+impl Profile {
+    pub fn acts(&self, signer: &Pubkey) -> bool {
+        self.owner == *signer || (self.agent == *signer && self.agent != Pubkey::default())
+    }
 }
 
 /// Devnet only: when a wallet last used the test-USDC faucet.
@@ -247,4 +263,28 @@ pub struct Faucet {
 pub fn read_title(t: &[u8; 48]) -> &str {
     let n = t.iter().position(|&b| b == 0).unwrap_or(48);
     core::str::from_utf8(&t[..n]).unwrap_or("")
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+    use core::mem::{offset_of, size_of};
+
+    /// Prints the zero-copy layouts the TypeScript decoder mirrors (app/src/chain/layout.gen.json).
+    #[test]
+    fn print_layout() {
+        macro_rules! offs {
+            ($t:ty; $($f:ident),*) => {{
+                let mut s = String::from("{");
+                $( s.push_str(&format!("\"{}\":{},", stringify!($f), offset_of!($t, $f))); )*
+                s.push_str(&format!("\"__size\":{}}}", size_of::<$t>()));
+                s
+            }};
+        }
+        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump);
+        let trade = offs!(Trade; price, ts, buyer, seller, spot, kind);
+        let receipt = offs!(Receipt; break_id, host_paid, settled_at, host, cards, recipient, claimed, n_cards, settled, bump);
+        let deck = offs!(Deck; magic, seeded, break_id, randomness, order);
+        println!("LAYOUT{{\"Break\":{},\"Trade\":{},\"Receipt\":{},\"Deck\":{}}}", brk, trade, receipt, deck);
+    }
 }

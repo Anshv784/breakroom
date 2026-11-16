@@ -34,7 +34,6 @@ pub fn handle_create_break(
     let mint = ctx.accounts.mint.key();
     require_keys_eq!(ctx.accounts.host_eata.key(), eata_pda(&host, &mint), BreakError::BadAccount);
     require!(!ctx.accounts.host_eata.data_is_empty(), BreakError::HostNotReady);
-    require_keys_eq!(ctx.accounts.desk.mint, mint, BreakError::BadAccount);
 
     let now = Clock::get()?.unix_timestamp;
     {
@@ -76,8 +75,6 @@ pub struct CreateBreak<'info> {
     #[account(mut)]
     pub host: Signer<'info>,
     pub mint: Account<'info, Mint>,
-    #[account(seeds = [DESK_SEED, mint.key().as_ref()], bump = desk.bump)]
-    pub desk: Account<'info, Desk>,
     /// CHECK: must be the host's ephemeral USDC account (checked in the handler)
     pub host_eata: UncheckedAccount<'info>,
     #[account(init, payer = host, space = 8 + core::mem::size_of::<Break>(), seeds = [BREAK_SEED, &break_id.to_le_bytes()], bump)]

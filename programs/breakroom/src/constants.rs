@@ -4,6 +4,9 @@ use anchor_lang::prelude::*;
 /// Deploys the program, runs the appraisal desk and receives protocol fees.
 pub const ADMIN: Pubkey = pubkey!("FwoAkqEeqdV5rpz9NbmN3ishH7a4DCLaCJGMDgHKLSJQ");
 
+/// Receives protocol fees, straight from each buyer, in its private USDC balance.
+pub const TREASURY: Pubkey = ADMIN;
+
 /// Breaks may only run on MagicBlock's TEE validator (same identity on devnet and mainnet):
 /// a break on any other validator could commit whatever shuffle it liked.
 pub const TEE_VALIDATOR: Pubkey = pubkey!("MTEWGuqxUpYZGFJQcp8tLN7x5v9BSeoFHYWQQ3n3xzo");
@@ -13,7 +16,7 @@ pub const DELEGATION_PROGRAM: Pubkey = pubkey!("DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjt
 pub const COMPUTE_BUDGET_PROGRAM: Pubkey = pubkey!("ComputeBudget111111111111111111111111111111");
 
 // ---- seeds ----
-pub const DESK_SEED: &[u8] = b"desk";
+pub const PROFILE_SEED: &[u8] = b"profile";
 pub const BREAK_SEED: &[u8] = b"break";
 pub const RECEIPT_SEED: &[u8] = b"receipt";
 pub const VAULT_SEED: &[u8] = b"vault";
@@ -35,9 +38,10 @@ pub const SALE_FEE_BPS: u64 = 500;
 /// Fee on every secondary spot trade (2%), paid by the seller.
 pub const TRADE_FEE_BPS: u64 = 200;
 pub const BPS: u64 = 10_000;
-/// A new bid must beat the standing one by at least this much (1%, and at least one cent).
+/// A new offer must beat the standing one by at least this much (1%).
 pub const MIN_RAISE_BPS: u64 = 100;
-pub const MIN_TICK: u64 = 10_000;
+/// How long an accepted offer holds the spot for the bidder's session to fill it.
+pub const RESERVE_SECS: i64 = 20;
 /// Smallest spot price: 1 USDC.
 pub const MIN_SPOT_PRICE: u64 = 1_000_000;
 

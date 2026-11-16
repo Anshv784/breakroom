@@ -1,6 +1,5 @@
 //! TEE: open the sale (seal the Deck) and sell spots for private USDC.
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, TokenAccount};
 use ephemeral_rollups_sdk::access_control::instructions::CreateEphemeralPermissionCpi;
 use ephemeral_rollups_sdk::access_control::structs::{EphemeralMembersArgs, EphemeralPermission};
 use ephemeral_rollups_sdk::consts::{EPHEMERAL_VAULT_ID, MAGIC_PROGRAM_ID, PERMISSION_PROGRAM_ID};
@@ -8,7 +7,7 @@ use ephemeral_rollups_sdk::ephemeral_accounts::EphemeralAccount;
 
 use crate::constants::*;
 use crate::error::BreakError;
-use crate::espl::*;
+use crate::pay::*;
 use crate::state::*;
 
 /// Create the sealed Deck (private permission, zero members: nobody can read it, the host
@@ -91,50 +90,47 @@ pub struct OpenSale<'info> {
     pub magic_program: UncheckedAccount<'info>,
 }
 
-/// Buy an open spot at the listed price. USDC moves from the buyer's private balance to the
-/// desk inside the TEE; the signer is the wallet itself or its approved session key.
+/// Buy an open spot at the box price. The buyer's own transaction pays the host (95%) and the
+/// treasury (5%) right in front of this instruction; see `pay.rs`.
 pub fn handle_buy_spot(ctx: Context<BuySpot>, spot: u8, max_price: u64) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
-    let buyer_acct = &ctx.accounts.buyer_usdc;
-    let price = {
-        let b = ctx.accounts.brk.load()?;
-        require!(b.status == ST_SELLING, BreakError::WrongStage);
-        require!((spot as usize) < b.n_spots as usize, BreakError::BadSpot);
-        require!(b.spot_owner[spot as usize] == Pubkey::default(), BreakError::SpotTaken);
-        require!(b.spot_price <= max_price, BreakError::PriceMoved);
-        require_keys_eq!(buyer_acct.mint, b.mint, BreakError::BadAccount);
-        b.spot_price
-    };
-    require_spender(buyer_acct, &ctx.accounts.signer.key(), price)?;
-    pay(&buyer_acct.to_account_info(), &ctx.accounts.desk_usdc.to_account_info(), &ctx.accounts.signer.to_account_info(), &ctx.accounts.token_program.to_account_info(), price)?;
-
+    let profile = &mut ctx.accounts.profile;
+    require!(profile.acts(&ctx.accounts.signer.key()), BreakError::NotYourProfile);
+    let buyer = profile.owner;
     let mut b = ctx.accounts.brk.load_mut()?;
+    require!(b.status == ST_SELLING, BreakError::WrongStage);
     let s = spot as usize;
-    let owner = buyer_acct.owner;
-    b.spot_owner[s] = owner;
+    require!(s < b.n_spots as usize, BreakError::BadSpot);
+    require!(b.spot_owner[s] == Pubkey::default(), BreakError::SpotTaken);
+    let price = b.spot_price;
+    require!(price <= max_price, BreakError::PriceMoved);
+    let fee = bps(price, SALE_FEE_BPS);
+    let host = b.host;
+    expect_payment(&ctx.accounts.instructions.to_account_info(), &buyer, &b.mint, &host, price - fee, fee)?;
+
+    b.spot_owner[s] = buyer;
     b.spot_cost[s] = price;
     b.last_price[s] = price;
-    b.escrow = b.escrow.checked_add(price).ok_or(BreakError::Overflow)?;
+    b.host_revenue = b.host_revenue.checked_add(price - fee).ok_or(BreakError::Overflow)?;
+    b.fees = b.fees.checked_add(fee).ok_or(BreakError::Overflow)?;
     b.volume = b.volume.checked_add(price).ok_or(BreakError::Overflow)?;
     b.sold += 1;
     if b.sold == b.n_spots {
         b.sold_out_at = now;
     }
-    let host = b.host;
-    b.log(spot, TR_PRIMARY, price, owner, host, now);
+    b.log(spot, TR_PRIMARY, price, buyer, host, now);
+    profile.spots_bought += 1;
+    profile.spent = profile.spent.saturating_add(price);
     Ok(())
 }
 
 #[derive(Accounts)]
 pub struct BuySpot<'info> {
     pub signer: Signer<'info>,
+    #[account(mut, seeds = [PROFILE_SEED, profile.owner.as_ref()], bump = profile.bump)]
+    pub profile: Account<'info, Profile>,
     #[account(mut, seeds = [BREAK_SEED, &brk.load()?.break_id.to_le_bytes()], bump)]
     pub brk: AccountLoader<'info, Break>,
-    #[account(mut)]
-    pub buyer_usdc: Account<'info, TokenAccount>,
-    #[account(seeds = [DESK_SEED, desk.mint.as_ref()], bump = desk.bump)]
-    pub desk: Account<'info, Desk>,
-    #[account(mut, associated_token::mint = desk.mint, associated_token::authority = desk)]
-    pub desk_usdc: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    /// CHECK: the instructions sysvar (address checked in expect_payment)
+    pub instructions: UncheckedAccount<'info>,
 }

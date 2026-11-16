@@ -1,0 +1,2921 @@
+{
+  "address": "7hnz4i1zaz3UPW1eNzpTonN5GeLRCyVMSnpk5tTHKzTD",
+  "metadata": {
+    "name": "breakroom",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "BREAKROOM: provably fair live card breaks with a live spot market, on MagicBlock Private Ephemeral Rollups"
+  },
+  "instructions": [
+    {
+      "name": "accept_offer",
+      "discriminator": [
+        227,
+        82,
+        234,
+        131,
+        1,
+        18,
+        48,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "spot",
+          "type": "u8"
+        },
+        {
+          "name": "price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "appraise",
+      "discriminator": [
+        46,
+        104,
+        115,
+        71,
+        196,
+        53,
+        225,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "appraiser",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "card",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "value",
+          "type": "u64"
+        },
+        {
+          "name": "tier",
+          "type": "u8"
+        },
+        {
+          "name": "grade",
+          "type": "u8"
+        },
+        {
+          "name": "cert",
+          "type": "u64"
+        },
+        {
+          "name": "name",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "set",
+          "type": {
+            "array": [
+              "u8",
+              24
+            ]
+          }
+        },
+        {
+          "name": "art",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "buy_listed",
+      "discriminator": [
+        75,
+        236,
+        50,
+        95,
+        167,
+        79,
+        50,
+        201
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "buyer",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buyer.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "seller",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "seller.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "spot",
+          "type": "u8"
+        },
+        {
+          "name": "max_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "buy_spot",
+      "discriminator": [
+        240,
+        152,
+        121,
+        253,
+        95,
+        251,
+        53,
+        238
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "spot",
+          "type": "u8"
+        },
+        {
+          "name": "max_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_break",
+      "discriminator": [
+        58,
+        131,
+        253,
+        223,
+        67,
+        75,
+        42,
+        82
+      ],
+      "accounts": [
+        {
+          "name": "host",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "host_eata"
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "break_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "break_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "break_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "break_id",
+          "type": "u64"
+        },
+        {
+          "name": "n_spots",
+          "type": "u8"
+        },
+        {
+          "name": "per_spot",
+          "type": "u8"
+        },
+        {
+          "name": "spot_price",
+          "type": "u64"
+        },
+        {
+          "name": "reveal_ms",
+          "type": "u32"
+        },
+        {
+          "name": "title",
+          "type": {
+            "array": [
+              "u8",
+              48
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_profile",
+      "discriminator": [
+        225,
+        205,
+        234,
+        143,
+        17,
+        186,
+        50,
+        220
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "array": [
+              "u8",
+              20
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "delegate_profile",
+      "discriminator": [
+        197,
+        115,
+        194,
+        166,
+        110,
+        39,
+        73,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buffer_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                99,
+                153,
+                89,
+                25,
+                6,
+                101,
+                224,
+                150,
+                43,
+                199,
+                151,
+                241,
+                30,
+                119,
+                143,
+                141,
+                67,
+                173,
+                198,
+                40,
+                226,
+                6,
+                250,
+                31,
+                208,
+                36,
+                191,
+                37,
+                156,
+                195,
+                130,
+                196
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "profile",
+          "writable": true
+        },
+        {
+          "name": "validator"
+        },
+        {
+          "name": "owner_program",
+          "address": "7hnz4i1zaz3UPW1eNzpTonN5GeLRCyVMSnpk5tTHKzTD"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "deposit_card",
+      "discriminator": [
+        221,
+        131,
+        111,
+        52,
+        236,
+        215,
+        120,
+        228
+      ],
+      "accounts": [
+        {
+          "name": "host",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "card_mint"
+        },
+        {
+          "name": "card",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "card_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "host_card",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_card",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "card_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "slot",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "faucet",
+      "discriminator": [
+        0,
+        98,
+        59,
+        30,
+        144,
+        142,
+        113,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  100,
+                  99
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "faucet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  117,
+                  99,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_stats",
+      "discriminator": [
+        203,
+        189,
+        229,
+        174,
+        240,
+        190,
+        158,
+        110
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "stats",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  115
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_test_mint",
+      "discriminator": [
+        198,
+        133,
+        84,
+        4,
+        251,
+        120,
+        196,
+        183
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  100,
+                  99
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "list_spot",
+      "discriminator": [
+        147,
+        48,
+        81,
+        90,
+        24,
+        75,
+        70,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "spot",
+          "type": "u8"
+        },
+        {
+          "name": "ask",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "make_offer",
+      "discriminator": [
+        214,
+        98,
+        97,
+        35,
+        59,
+        12,
+        44,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "spot",
+          "type": "u8"
+        },
+        {
+          "name": "price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "open_sale",
+      "discriminator": [
+        246,
+        220,
+        152,
+        93,
+        31,
+        43,
+        199,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "deck",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "deck_permission",
+          "writable": true
+        },
+        {
+          "name": "brk_permission",
+          "writable": true
+        },
+        {
+          "name": "permission_program",
+          "address": "ACLseoPoyC3cBqoUtkbjZ4aDrkurZW86v19pXz2XQnp1"
+        },
+        {
+          "name": "ephemeral_vault",
+          "writable": true,
+          "address": "MagicVau1t999999999999999999999999999999999"
+        },
+        {
+          "name": "magic_program",
+          "address": "Magic11111111111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "process_undelegation",
+      "discriminator": [
+        196,
+        28,
+        41,
+        206,
+        48,
+        37,
+        51,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "base_account",
+          "writable": true
+        },
+        {
+          "name": "buffer",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  110,
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  101,
+                  45,
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "base_account"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                181,
+                183,
+                0,
+                225,
+                242,
+                87,
+                58,
+                192,
+                204,
+                6,
+                34,
+                1,
+                52,
+                74,
+                207,
+                151,
+                184,
+                53,
+                6,
+                235,
+                140,
+                229,
+                25,
+                152,
+                204,
+                98,
+                126,
+                24,
+                147,
+                128,
+                167,
+                62
+              ]
+            }
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "account_seeds",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "seal_break",
+      "discriminator": [
+        248,
+        166,
+        247,
+        177,
+        27,
+        43,
+        124,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "host",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "buffer_brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  117,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                99,
+                153,
+                89,
+                25,
+                6,
+                101,
+                224,
+                150,
+                43,
+                199,
+                151,
+                241,
+                30,
+                119,
+                143,
+                141,
+                67,
+                173,
+                198,
+                40,
+                226,
+                6,
+                250,
+                31,
+                208,
+                36,
+                191,
+                37,
+                156,
+                195,
+                130,
+                196
+              ]
+            }
+          }
+        },
+        {
+          "name": "delegation_record_brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "delegation_metadata_brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  101,
+                  108,
+                  101,
+                  103,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110,
+                  45,
+                  109,
+                  101,
+                  116,
+                  97,
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ],
+            "program": {
+              "kind": "account",
+              "path": "delegation_program"
+            }
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true
+        },
+        {
+          "name": "validator"
+        },
+        {
+          "name": "owner_program",
+          "address": "7hnz4i1zaz3UPW1eNzpTonN5GeLRCyVMSnpk5tTHKzTD"
+        },
+        {
+          "name": "delegation_program",
+          "address": "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_agent",
+      "discriminator": [
+        154,
+        74,
+        121,
+        91,
+        137,
+        19,
+        101,
+        166
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "agent",
+          "type": "pubkey"
+        },
+        {
+          "name": "name",
+          "type": {
+            "option": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw_card",
+      "discriminator": [
+        171,
+        158,
+        219,
+        84,
+        199,
+        17,
+        86,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "host",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "card_mint"
+        },
+        {
+          "name": "host_card",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "host"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "card_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_card",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "vault"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "card_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "slot",
+          "type": "u8"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Break",
+      "discriminator": [
+        126,
+        255,
+        215,
+        54,
+        215,
+        253,
+        74,
+        184
+      ]
+    },
+    {
+      "name": "Card",
+      "discriminator": [
+        166,
+        250,
+        46,
+        230,
+        152,
+        63,
+        140,
+        182
+      ]
+    },
+    {
+      "name": "Faucet",
+      "discriminator": [
+        146,
+        11,
+        249,
+        142,
+        199,
+        197,
+        61,
+        0
+      ]
+    },
+    {
+      "name": "Profile",
+      "discriminator": [
+        184,
+        101,
+        165,
+        188,
+        95,
+        63,
+        127,
+        188
+      ]
+    },
+    {
+      "name": "Receipt",
+      "discriminator": [
+        39,
+        154,
+        73,
+        106,
+        80,
+        102,
+        145,
+        153
+      ]
+    },
+    {
+      "name": "Stats",
+      "discriminator": [
+        190,
+        125,
+        51,
+        63,
+        169,
+        197,
+        36,
+        238
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotAdmin",
+      "msg": "Only the protocol admin can do this"
+    },
+    {
+      "code": 6001,
+      "name": "NotHost",
+      "msg": "Only the host can do this"
+    },
+    {
+      "code": 6002,
+      "name": "BadAccount",
+      "msg": "Wrong account"
+    },
+    {
+      "code": 6003,
+      "name": "BadShape",
+      "msg": "A break needs 2-16 spots and 1-8 cards per spot"
+    },
+    {
+      "code": 6004,
+      "name": "PriceTooLow",
+      "msg": "Spot price is below the minimum"
+    },
+    {
+      "code": 6005,
+      "name": "NotAppraised",
+      "msg": "This card has not been appraised"
+    },
+    {
+      "code": 6006,
+      "name": "NotACard",
+      "msg": "That token is not a card NFT (supply 1, 0 decimals)"
+    },
+    {
+      "code": 6007,
+      "name": "SlotFilled",
+      "msg": "That card slot is already filled"
+    },
+    {
+      "code": 6008,
+      "name": "BoxIncomplete",
+      "msg": "Not every card is in the vault yet"
+    },
+    {
+      "code": 6009,
+      "name": "WrongStage",
+      "msg": "The break is not in the right stage for this"
+    },
+    {
+      "code": 6010,
+      "name": "SpotTaken",
+      "msg": "That spot is taken"
+    },
+    {
+      "code": 6011,
+      "name": "BadSpot",
+      "msg": "No such spot"
+    },
+    {
+      "code": 6012,
+      "name": "NotSpotOwner",
+      "msg": "You don't own this spot"
+    },
+    {
+      "code": 6013,
+      "name": "SpotLocked",
+      "msg": "This spot's pack is already opening"
+    },
+    {
+      "code": 6014,
+      "name": "NotListed",
+      "msg": "Not listed"
+    },
+    {
+      "code": 6015,
+      "name": "PriceMoved",
+      "msg": "Price changed: refresh and try again"
+    },
+    {
+      "code": 6016,
+      "name": "BidTooLow",
+      "msg": "Bid too low: beat the standing bid by at least 1%"
+    },
+    {
+      "code": 6017,
+      "name": "NoBid",
+      "msg": "No bid on this spot"
+    },
+    {
+      "code": 6018,
+      "name": "SelfTrade",
+      "msg": "You can't trade with yourself"
+    },
+    {
+      "code": 6019,
+      "name": "NotApproved",
+      "msg": "Not enough USDC approved for this session"
+    },
+    {
+      "code": 6020,
+      "name": "TooEarly",
+      "msg": "Too early"
+    },
+    {
+      "code": 6021,
+      "name": "AllRevealed",
+      "msg": "Every card is already out"
+    },
+    {
+      "code": 6022,
+      "name": "NotShuffled",
+      "msg": "The shuffle hasn't landed yet"
+    },
+    {
+      "code": 6023,
+      "name": "AlreadyClaimed",
+      "msg": "Card already delivered"
+    },
+    {
+      "code": 6024,
+      "name": "FaucetCooldown",
+      "msg": "Faucet cooling down"
+    },
+    {
+      "code": 6025,
+      "name": "Overflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6026,
+      "name": "NotTee",
+      "msg": "Break must run on the TEE validator"
+    },
+    {
+      "code": 6027,
+      "name": "HostNotReady",
+      "msg": "Host needs a private USDC balance first (make any deposit)"
+    },
+    {
+      "code": 6028,
+      "name": "PaymentMissing",
+      "msg": "Payment instructions missing in front of this one"
+    },
+    {
+      "code": 6029,
+      "name": "PaymentMismatch",
+      "msg": "Payment doesn't match: wrong payer, payee or amount"
+    },
+    {
+      "code": 6030,
+      "name": "Reserved",
+      "msg": "This spot is reserved for another buyer for a few seconds"
+    },
+    {
+      "code": 6031,
+      "name": "NotYourProfile",
+      "msg": "This key can't act for that profile"
+    },
+    {
+      "code": 6032,
+      "name": "BadName",
+      "msg": "Name must be 2-20 letters, numbers, _ or -"
+    }
+  ],
+  "types": [
+    {
+      "name": "Break",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "break_id",
+            "type": "u64"
+          },
+          {
+            "name": "spot_price",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "sold_out_at",
+            "docs": [
+              "When the last spot sold (0 while some are left)."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "shuffle_requested_at",
+            "docs": [
+              "Sale closed / VRF requested."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "next_reveal_ms",
+            "docs": [
+              "Earliest time the next card may be revealed."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "ended_at",
+            "type": "i64"
+          },
+          {
+            "name": "host_revenue",
+            "docs": [
+              "What the host has been paid for spots (net of the protocol fee). Paid instantly, buyer",
+              "to host, at the moment of each sale: the protocol never holds anyone's USDC."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "secondary_volume",
+            "type": "u64"
+          },
+          {
+            "name": "volume",
+            "type": "u64"
+          },
+          {
+            "name": "fees",
+            "type": "u64"
+          },
+          {
+            "name": "box_value",
+            "docs": [
+              "Total appraised value of the box."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "crank_task",
+            "type": "u64"
+          },
+          {
+            "name": "host",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "commitment",
+            "docs": [
+              "sha256 over every card mint + appraised value, fixed before a single spot sells."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "cards",
+            "type": {
+              "array": [
+                "pubkey",
+                64
+              ]
+            }
+          },
+          {
+            "name": "card_value",
+            "type": {
+              "array": [
+                "u64",
+                64
+              ]
+            }
+          },
+          {
+            "name": "card_tier",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "revealed",
+            "docs": [
+              "Position -> card index + 1 (0 = still sealed). Position p belongs to spot p / per_spot."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "spot_owner",
+            "type": {
+              "array": [
+                "pubkey",
+                16
+              ]
+            }
+          },
+          {
+            "name": "spot_cost",
+            "docs": [
+              "What the current owner paid for the spot (for P&L in the UI)."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "ask",
+            "docs": [
+              "0 = not listed."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "bid",
+            "docs": [
+              "Best standing offer. Offers aren't escrowed: when the owner accepts, the spot is reserved",
+              "for the bidder at that price and the bidder's session fills it."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "bidder",
+            "type": {
+              "array": [
+                "pubkey",
+                16
+              ]
+            }
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Accepted offer: only this wallet may buy the spot at `ask` until `reserve_until`."
+            ],
+            "type": {
+              "array": [
+                "pubkey",
+                16
+              ]
+            }
+          },
+          {
+            "name": "reserve_until",
+            "type": {
+              "array": [
+                "i64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "last_price",
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "open_order",
+            "docs": [
+              "Order in which spots open (from the VRF output; public once the shuffle lands)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "trades",
+            "type": {
+              "array": [
+                {
+                  "defined": {
+                    "name": "Trade"
+                  }
+                },
+                48
+              ]
+            }
+          },
+          {
+            "name": "title",
+            "type": {
+              "array": [
+                "u8",
+                48
+              ]
+            }
+          },
+          {
+            "name": "n_spots",
+            "type": "u8"
+          },
+          {
+            "name": "per_spot",
+            "type": "u8"
+          },
+          {
+            "name": "n_cards",
+            "type": "u8"
+          },
+          {
+            "name": "deposited",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "sold",
+            "type": "u8"
+          },
+          {
+            "name": "cursor",
+            "docs": [
+              "Cards revealed so far."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "trade_head",
+            "type": "u8"
+          },
+          {
+            "name": "n_trades",
+            "type": "u32"
+          },
+          {
+            "name": "reveal_ms",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "_pad",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Card",
+      "docs": [
+        "The appraisal desk's record for one card NFT. Hosts can't write it: the price a buyer sees",
+        "next to a card comes from here, not from the host's listing."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "value",
+            "docs": [
+              "Market value in USDC base units (6 decimals)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tier",
+            "type": "u8"
+          },
+          {
+            "name": "grade",
+            "docs": [
+              "Grade x10 (100 = gem mint 10)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "cert",
+            "type": "u64"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "set",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          },
+          {
+            "name": "art",
+            "docs": [
+              "Seeds the card's artwork on the client."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "appraised_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Faucet",
+      "docs": [
+        "Devnet only: when a wallet last used the test-USDC faucet."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "last",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Profile",
+      "docs": [
+        "A player: display name, the session key allowed to act for them inside the TEE, and stats.",
+        "Created on Solana and delegated, so binding a new session key is instant and free."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          {
+            "name": "spots_bought",
+            "type": "u32"
+          },
+          {
+            "name": "trades",
+            "type": "u32"
+          },
+          {
+            "name": "spent",
+            "type": "u64"
+          },
+          {
+            "name": "earned",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Receipt",
+      "docs": [
+        "Base layer. Written by the post-commit Magic Action once the break has ended: which wallet",
+        "receives each card. `claim` reads only this, so cards can be delivered while the Break stays",
+        "delegated."
+      ],
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "break_id",
+            "type": "u64"
+          },
+          {
+            "name": "host_paid",
+            "type": "u64"
+          },
+          {
+            "name": "settled_at",
+            "type": "i64"
+          },
+          {
+            "name": "host",
+            "type": "pubkey"
+          },
+          {
+            "name": "cards",
+            "type": {
+              "array": [
+                "pubkey",
+                64
+              ]
+            }
+          },
+          {
+            "name": "recipient",
+            "docs": [
+              "Card index -> recipient."
+            ],
+            "type": {
+              "array": [
+                "pubkey",
+                64
+              ]
+            }
+          },
+          {
+            "name": "claimed",
+            "docs": [
+              "Bit i = card i delivered."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "n_cards",
+            "type": "u8"
+          },
+          {
+            "name": "settled",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_pad",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Stats",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "breaks",
+            "type": "u64"
+          },
+          {
+            "name": "cards",
+            "type": "u64"
+          },
+          {
+            "name": "primary_volume",
+            "type": "u64"
+          },
+          {
+            "name": "secondary_volume",
+            "type": "u64"
+          },
+          {
+            "name": "trades",
+            "type": "u64"
+          },
+          {
+            "name": "fees",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Trade",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "spot",
+            "type": "u8"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "_pad",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

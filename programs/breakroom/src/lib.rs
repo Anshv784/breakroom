@@ -9,6 +9,11 @@
 #![allow(deprecated)]
 #![allow(unexpected_cfgs)]
 
+// No panic messages on chain: formatting them is dead weight in the binary.
+#[cfg(all(target_os = "solana", feature = "custom-panic"))]
+#[no_mangle]
+fn custom_panic(_: &core::panic::PanicInfo<'_>) {}
+
 use anchor_lang::prelude::*;
 use ephemeral_rollups_sdk::anchor::ephemeral;
 
@@ -16,6 +21,7 @@ pub mod constants;
 pub mod error;
 pub mod espl;
 pub mod instructions;
+pub mod pay;
 pub mod state;
 
 pub use constants::*;
@@ -44,13 +50,23 @@ pub mod breakroom {
         instructions::admin::handle_faucet(ctx)
     }
 
-    pub fn init_desk(ctx: Context<InitDesk>) -> Result<()> {
-        instructions::admin::handle_init_desk(ctx)
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn appraise(ctx: Context<Appraise>, value: u64, tier: u8, grade: u8, cert: u64, name: [u8; 32], set: [u8; 24], art: u32) -> Result<()> {
         instructions::admin::handle_appraise(ctx, value, tier, grade, cert, name, set, art)
+    }
+
+    // ---- players
+
+    pub fn create_profile(ctx: Context<CreateProfile>, name: [u8; 20]) -> Result<()> {
+        instructions::profile::handle_create_profile(ctx, name)
+    }
+
+    pub fn delegate_profile(ctx: Context<DelegateProfile>) -> Result<()> {
+        instructions::profile::handle_delegate_profile(ctx)
+    }
+
+    pub fn set_agent(ctx: Context<SetAgent>, agent: Pubkey, name: Option<[u8; 20]>) -> Result<()> {
+        instructions::profile::handle_set_agent(ctx, agent, name)
     }
 
     // ---- Solana: the host builds a break
@@ -79,5 +95,23 @@ pub mod breakroom {
 
     pub fn buy_spot(ctx: Context<BuySpot>, spot: u8, max_price: u64) -> Result<()> {
         instructions::sale::handle_buy_spot(ctx, spot, max_price)
+    }
+
+    // ---- TEE: the spot market
+
+    pub fn list_spot(ctx: Context<OwnerAction>, spot: u8, ask: u64) -> Result<()> {
+        instructions::market::handle_list_spot(ctx, spot, ask)
+    }
+
+    pub fn make_offer(ctx: Context<OwnerAction>, spot: u8, price: u64) -> Result<()> {
+        instructions::market::handle_make_offer(ctx, spot, price)
+    }
+
+    pub fn accept_offer(ctx: Context<OwnerAction>, spot: u8, price: u64) -> Result<()> {
+        instructions::market::handle_accept_offer(ctx, spot, price)
+    }
+
+    pub fn buy_listed(ctx: Context<BuyListed>, spot: u8, max_price: u64) -> Result<()> {
+        instructions::market::handle_buy_listed(ctx, spot, max_price)
     }
 }

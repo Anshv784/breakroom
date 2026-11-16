@@ -5,7 +5,6 @@ use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
 
 use crate::constants::*;
 use crate::error::BreakError;
-use crate::espl::*;
 use crate::state::*;
 
 pub fn handle_init_stats(ctx: Context<InitStats>) -> Result<()> {
@@ -73,72 +72,6 @@ pub struct UseFaucet<'info> {
     pub ata: Account<'info, TokenAccount>,
     #[account(init_if_needed, payer = user, space = 8 + Faucet::INIT_SPACE, seeds = [FAUCET_SEED, user.key().as_ref()], bump)]
     pub faucet: Account<'info, Faucet>,
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub system_program: Program<'info, System>,
-}
-
-// ---------------------------------------------------------------------------------------------
-// The desk: a PDA-owned USDC account delegated to the TEE. Spot payments and bids sit here while
-// a break runs; settlement pays the host from it.
-
-pub fn handle_init_desk(ctx: Context<InitDesk>) -> Result<()> {
-    require_keys_eq!(ctx.accounts.admin.key(), ADMIN, BreakError::NotAdmin);
-    let a = &ctx.accounts;
-    let desk_key = a.desk.key();
-    let mint_key = a.mint.key();
-    let eata = eata_pda(&desk_key, &mint_key);
-    require_keys_eq!(a.desk_eata.key(), eata, BreakError::BadAccount);
-    require_keys_eq!(a.eata_buffer.key(), eata_buffer(&eata), BreakError::BadAccount);
-    require_keys_eq!(a.eata_record.key(), delegation_record(&eata), BreakError::BadAccount);
-    require_keys_eq!(a.eata_metadata.key(), delegation_metadata(&eata), BreakError::BadAccount);
-    if a.desk_eata.data_is_empty() {
-        init_eata(&a.espl_program, &a.desk_eata, &a.admin.to_account_info(), &a.desk.to_account_info(), &a.mint.to_account_info(), &a.system_program.to_account_info())?;
-    }
-    delegate_eata(
-        &a.espl_program,
-        &a.admin.to_account_info(),
-        &a.desk_eata,
-        &a.eata_buffer,
-        &a.eata_record,
-        &a.eata_metadata,
-        &a.delegation_program,
-        &a.system_program.to_account_info(),
-        TEE_VALIDATOR,
-    )?;
-    let desk = &mut ctx.accounts.desk;
-    desk.mint = mint_key;
-    desk.bump = ctx.bumps.desk;
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct InitDesk<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    pub mint: Account<'info, Mint>,
-    #[account(init_if_needed, payer = admin, space = 8 + Desk::INIT_SPACE, seeds = [DESK_SEED, mint.key().as_ref()], bump)]
-    pub desk: Account<'info, Desk>,
-    #[account(init_if_needed, payer = admin, associated_token::mint = mint, associated_token::authority = desk)]
-    pub desk_ata: Account<'info, TokenAccount>,
-    /// CHECK: derived in the handler
-    #[account(mut)]
-    pub desk_eata: UncheckedAccount<'info>,
-    /// CHECK: derived in the handler
-    #[account(mut)]
-    pub eata_buffer: UncheckedAccount<'info>,
-    /// CHECK: derived in the handler
-    #[account(mut)]
-    pub eata_record: UncheckedAccount<'info>,
-    /// CHECK: derived in the handler
-    #[account(mut)]
-    pub eata_metadata: UncheckedAccount<'info>,
-    /// CHECK: fixed id
-    #[account(address = ESPL_PROGRAM)]
-    pub espl_program: UncheckedAccount<'info>,
-    /// CHECK: fixed id
-    #[account(address = DELEGATION_PROGRAM)]
-    pub delegation_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,

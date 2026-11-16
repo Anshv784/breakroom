@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "breakroom"
 
 [features]
-default = []
+default = ["custom-panic", "no-log-ix-name"]
 mainnet = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
@@ -25,6 +25,7 @@ anchor-lang = { version = "1.0.2", features = ["init-if-needed"] }
 anchor-spl = { version = "1.0.2" }
 ephemeral-rollups-sdk = { version = "0.17.3", features = ["anchor", "access-control", "crank", "vrf"] }
 solana-sha256-hasher = "3.1"
+solana-instructions-sysvar = "3.0"
 bytemuck = { version = "1.16", features = ["derive", "min_const_generics"] }
 
 [lints.rust]

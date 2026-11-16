@@ -1,0 +1,547 @@
+// BREAKROOM chain client: Solana (base) + the MagicBlock TEE + the Private Payments API.
+// Shared by the web app and the node scripts. Instructions are built straight from the IDL, so
+// account order always matches the program.
+import * as anchorNs from "@coral-xyz/anchor";
+import {
+  ComputeBudgetProgram,
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+  Transaction,
+  TransactionInstruction,
+  VersionedTransaction,
+} from "@solana/web3.js";
+import { Buffer } from "buffer";
+import nacl from "tweetnacl";
+import {
+  EPHEMERAL_VAULT_ID,
+  MAGIC_CONTEXT_ID,
+  MAGIC_PROGRAM_ID,
+  PERMISSION_PROGRAM_ID,
+  getAuthToken,
+  magicFeeVaultPdaFromValidator,
+  permissionPdaFromAccount,
+} from "@magicblock-labs/ephemeral-rollups-sdk";
+import idl from "../idl/breakroom.json";
+import {
+  ADMIN,
+  BASE_RPC,
+  SALE_FEE_BPS,
+  TRADE_FEE_BPS,
+  CLUSTER,
+  DELEGATION_PROGRAM,
+  ESPL_PROGRAM,
+  PAYMENTS_API,
+  PROGRAM_ID,
+  SLOT_HASHES,
+  TEE_RPC,
+  TEE_VALIDATOR,
+  TEE_WS,
+  USDC_MINT,
+  VRF_EPHEMERAL_QUEUE,
+  VRF_PROGRAM,
+} from "./config";
+import { decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
+
+const ns: any = anchorNs;
+const BorshCoder = ns.BorshCoder ?? ns["default"]?.BorshCoder;
+const BN = ns.BN ?? ns["default"]?.BN;
+const coder = new BorshCoder(idl as any);
+
+export const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+export const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+
+// ------------------------------------------------------------------ addresses
+
+export const u64le = (n: bigint | number) => {
+  const b = Buffer.alloc(8);
+  b.writeBigUInt64LE(BigInt(n));
+  return b;
+};
+const pda = (seeds: (Buffer | Uint8Array)[], program = PROGRAM_ID) => PublicKey.findProgramAddressSync(seeds, program)[0];
+export const ata = (owner: PublicKey, mint: PublicKey) => pda([owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), mint.toBuffer()], ATA_PROGRAM);
+export const breakPda = (id: bigint) => pda([Buffer.from("break"), u64le(id)]);
+export const receiptPda = (id: bigint) => pda([Buffer.from("receipt"), u64le(id)]);
+export const vaultPda = (id: bigint) => pda([Buffer.from("vault"), u64le(id)]);
+export const deckPda = (id: bigint) => pda([Buffer.from("deck"), u64le(id)]);
+export const cardPda = (mint: PublicKey) => pda([Buffer.from("card"), mint.toBuffer()]);
+export const profilePda = (owner: PublicKey) => pda([Buffer.from("profile"), owner.toBuffer()]);
+export const INSTRUCTIONS_SYSVAR = new PublicKey("Sysvar1nstructions1111111111111111111111111");
+export const statsPda = () => pda([Buffer.from("stats")]);
+export const faucetPda = (user: PublicKey) => pda([Buffer.from("faucet"), user.toBuffer()]);
+export const eataPda = (owner: PublicKey, mint = USDC_MINT) => pda([owner.toBuffer(), mint.toBuffer()], ESPL_PROGRAM);
+export const eataBuffer = (eata: PublicKey) => pda([Buffer.from("buffer"), eata.toBuffer()], ESPL_PROGRAM);
+export const delegationRecord = (acc: PublicKey) => pda([Buffer.from("delegation"), acc.toBuffer()], DELEGATION_PROGRAM);
+export const delegationMetadata = (acc: PublicKey) => pda([Buffer.from("delegation-metadata"), acc.toBuffer()], DELEGATION_PROGRAM);
+export const delegateBuffer = (acc: PublicKey) => pda([Buffer.from("buffer"), acc.toBuffer()], PROGRAM_ID);
+
+// ------------------------------------------------------------------ instructions from the IDL
+
+type Accs = Record<string, PublicKey | undefined>;
+const IDL_IX: Record<string, any> = Object.fromEntries((idl as any).instructions.map((i: any) => [i.name, i]));
+
+/** Fixed program addresses Anchor fills in by itself; we name them once here. */
+const FIXED: Accs = {
+  system_program: SystemProgram.programId,
+  token_program: TOKEN_PROGRAM,
+  associated_token_program: ATA_PROGRAM,
+  rent: SYSVAR_RENT_PUBKEY,
+  espl_program: ESPL_PROGRAM,
+  delegation_program: DELEGATION_PROGRAM,
+  permission_program: PERMISSION_PROGRAM_ID,
+  ephemeral_vault: EPHEMERAL_VAULT_ID,
+  magic_program: MAGIC_PROGRAM_ID,
+  magic_context: MAGIC_CONTEXT_ID,
+  oracle_queue: VRF_EPHEMERAL_QUEUE,
+  program_identity: pda([Buffer.from("identity")]),
+  vrf_program: VRF_PROGRAM,
+  slot_hashes: SLOT_HASHES,
+  owner_program: PROGRAM_ID,
+  instructions: INSTRUCTIONS_SYSVAR,
+};
+
+export function ix(name: string, args: Record<string, unknown>, accounts: Accs, remaining: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = []) {
+  const def = IDL_IX[name];
+  if (!def) throw new Error(`no instruction ${name}`);
+  const keys = def.accounts.map((a: any) => {
+    const pubkey = accounts[a.name] ?? FIXED[a.name] ?? (a.address ? new PublicKey(a.address) : undefined) ?? (a.optional ? PROGRAM_ID : undefined);
+    if (!pubkey) throw new Error(`${name}: missing account ${a.name}`);
+    return { pubkey, isSigner: !!a.signer, isWritable: !!a.writable };
+  });
+  return new TransactionInstruction({ programId: PROGRAM_ID, keys: [...keys, ...remaining], data: coder.instruction.encode(name, args) });
+}
+
+const bn = (v: bigint | number) => new BN(v.toString());
+export const titleBytes = (s: string) => {
+  const b = new Uint8Array(48);
+  b.set(new TextEncoder().encode(s).subarray(0, 48));
+  return Array.from(b);
+};
+export const fixedBytes = (s: string, n: number) => {
+  const b = new Uint8Array(n);
+  b.set(new TextEncoder().encode(s).subarray(0, n));
+  return Array.from(b);
+};
+
+// ------------------------------------------------------------------ wallet abstraction
+
+export interface WalletLike {
+  publicKey: PublicKey;
+  signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T>;
+  signMessage(msg: Uint8Array): Promise<Uint8Array>;
+}
+
+export const keypairWallet = (kp: Keypair): WalletLike => ({
+  publicKey: kp.publicKey,
+  async signTransaction(tx) {
+    if (tx instanceof VersionedTransaction) tx.sign([kp]);
+    else tx.partialSign(kp);
+    return tx;
+  },
+  async signMessage(m) {
+    return nacl.sign.detached(m, kp.secretKey);
+  },
+});
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// ------------------------------------------------------------------ client
+
+export class BreakroomClient {
+  readonly base: Connection;
+  private teeConnCache: Connection | null = null;
+  private teeExpiry = 0;
+  private sessionTee: Connection | null = null;
+
+  /**
+   * `wallet` owns funds and spots. `session` is a throwaway key the wallet approves as SPL
+   * delegate inside the TEE, so trades sign without a wallet popup.
+   */
+  constructor(public wallet: WalletLike, public session: Keypair = Keypair.generate()) {
+    this.base = new Connection(BASE_RPC, "confirmed");
+  }
+
+  get me() {
+    return this.wallet.publicKey;
+  }
+
+  /** TEE connection authenticated as the wallet (reads its private balance). */
+  async tee(): Promise<Connection> {
+    if (this.teeConnCache && Date.now() < this.teeExpiry - 60_000) return this.teeConnCache;
+    const auth = await getAuthToken(TEE_RPC, this.me, (m: Uint8Array) => this.wallet.signMessage(m));
+    const exp = auth.expiresAt > 1e12 ? auth.expiresAt : auth.expiresAt * 1000;
+    this.teeConnCache = new Connection(`${TEE_RPC}?token=${auth.token}`, { wsEndpoint: `${TEE_WS}?token=${auth.token}`, commitment: "confirmed" });
+    this.teeExpiry = exp;
+    return this.teeConnCache;
+  }
+
+  /** TEE connection authenticated as the session key: public reads + sending trades, no popups. */
+  async teeSession(): Promise<Connection> {
+    if (this.sessionTee) return this.sessionTee;
+    const kp = this.session;
+    const auth = await getAuthToken(TEE_RPC, kp.publicKey, (m: Uint8Array) => Promise.resolve(nacl.sign.detached(m, kp.secretKey)));
+    this.sessionTee = new Connection(`${TEE_RPC}?token=${auth.token}`, { wsEndpoint: `${TEE_WS}?token=${auth.token}`, commitment: "confirmed" });
+    return this.sessionTee;
+  }
+
+  // ---------------------------------------------------------------- sending
+
+  private async confirm(conn: Connection, sig: string, raw: Buffer | Uint8Array, lastValid: number, rebroadcast: boolean) {
+    while ((await conn.getBlockHeight("confirmed")) <= lastValid) {
+      const st = (await conn.getSignatureStatuses([sig])).value[0];
+      if (st?.err) throw new TxError(sig, st.err, conn === this.base ? "base" : "tee");
+      if (st && (st.confirmationStatus === "confirmed" || st.confirmationStatus === "finalized")) return sig;
+      if (rebroadcast) await conn.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 }).catch(() => {});
+      await sleep(rebroadcast ? 1500 : 250);
+    }
+    throw new Error(`transaction expired (${sig})`);
+  }
+
+  /** Base layer, signed by the wallet (+ any extra keypairs). */
+  async sendBase(ixs: TransactionInstruction[], extra: Keypair[] = []): Promise<string> {
+    const { blockhash, lastValidBlockHeight } = await this.base.getLatestBlockhash("confirmed");
+    const tx = new Transaction().add(...ixs);
+    tx.feePayer = this.me;
+    tx.recentBlockhash = blockhash;
+    if (extra.length) tx.partialSign(...extra);
+    const signed = await this.wallet.signTransaction(tx);
+    const raw = signed.serialize();
+    const sig = await this.base.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
+    return this.confirm(this.base, sig, raw, lastValidBlockHeight, true);
+  }
+
+  /** TEE, signed by the session key: free, instant, no popup. */
+  async sendSession(ixs: TransactionInstruction[]): Promise<string> {
+    const conn = await this.teeSession();
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    const tx = new Transaction().add(...ixs);
+    tx.feePayer = this.session.publicKey;
+    tx.recentBlockhash = blockhash;
+    tx.sign(this.session);
+    const raw = tx.serialize();
+    const sig = await conn.sendRawTransaction(raw, { skipPreflight: true });
+    return this.confirm(conn, sig, raw, lastValidBlockHeight, false);
+  }
+
+  /** TEE, signed by the wallet itself (once per session: the approval). */
+  async sendTeeWallet(ixs: TransactionInstruction[]): Promise<string> {
+    const conn = await this.tee();
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    const tx = new Transaction().add(...ixs);
+    tx.feePayer = this.me;
+    tx.recentBlockhash = blockhash;
+    const signed = await this.wallet.signTransaction(tx);
+    const raw = signed.serialize();
+    const sig = await conn.sendRawTransaction(raw, { skipPreflight: true });
+    return this.confirm(conn, sig, raw, lastValidBlockHeight, false);
+  }
+
+  /** Sign + send a transaction the Payments API built, to the chain it names. */
+  private async sendBuilt(b: { transactionBase64: string; sendTo: "base" | "ephemeral"; version?: string }): Promise<string> {
+    const bytes = Buffer.from(b.transactionBase64, "base64");
+    const conn = b.sendTo === "base" ? this.base : await this.tee();
+    if (b.version === "v0") {
+      const tx = VersionedTransaction.deserialize(bytes);
+      const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+      tx.message.recentBlockhash = blockhash;
+      const signed = await this.wallet.signTransaction(tx);
+      const raw = signed.serialize();
+      const sig = await conn.sendRawTransaction(raw, { skipPreflight: true });
+      return this.confirm(conn, sig, raw, lastValidBlockHeight, b.sendTo === "base");
+    }
+    const tx = Transaction.from(bytes);
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    const signed = await this.wallet.signTransaction(tx);
+    const raw = signed.serialize();
+    const sig = await conn.sendRawTransaction(raw, { skipPreflight: true });
+    return this.confirm(conn, sig, raw, lastValidBlockHeight, b.sendTo === "base");
+  }
+
+  // ---------------------------------------------------------------- Private Payments API
+
+  private async payments(path: string, body?: unknown, token?: string) {
+    const res = await fetch(`${PAYMENTS_API}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(`Payments API ${path}: ${json?.error?.message ?? res.status}`);
+    return json;
+  }
+
+  /** Move USDC from the wallet on Solana into its private balance inside the TEE. */
+  async deposit(amount: bigint): Promise<string> {
+    const built = await this.payments("/v1/spl/deposit", {
+      owner: this.me.toBase58(),
+      amount: Number(amount),
+      cluster: CLUSTER,
+      mint: USDC_MINT.toBase58(),
+      validator: TEE_VALIDATOR.toBase58(),
+      initIfMissing: true,
+      initVaultIfMissing: true,
+      initAtasIfMissing: true,
+      idempotent: true,
+    });
+    return this.sendBuilt(built);
+  }
+
+  /** Move USDC from the private balance back to the wallet on Solana. */
+  async withdraw(amount: bigint): Promise<string> {
+    const built = await this.payments("/v1/spl/withdraw", {
+      owner: this.me.toBase58(),
+      mint: USDC_MINT.toBase58(),
+      amount: Number(amount),
+      cluster: CLUSTER,
+      validator: TEE_VALIDATOR.toBase58(),
+      initIfMissing: true,
+      initAtasIfMissing: true,
+      idempotent: true,
+    });
+    return this.sendBuilt(built);
+  }
+
+  /** One-time per mint+validator: create the TEE transfer queue for our test USDC. */
+  async initializePaymentsMint(): Promise<string | null> {
+    const st = await this.payments(`/v1/spl/is-mint-initialized?mint=${USDC_MINT.toBase58()}&cluster=${CLUSTER}&validator=${TEE_VALIDATOR.toBase58()}`);
+    if (st.initialized) return null;
+    const built = await this.payments("/v1/spl/initialize-mint", { payer: this.me.toBase58(), mint: USDC_MINT.toBase58(), cluster: CLUSTER, validator: TEE_VALIDATOR.toBase58() });
+    return this.sendBuilt(built);
+  }
+
+  // ---------------------------------------------------------------- balances
+
+  async baseUsdc(owner = this.me): Promise<bigint> {
+    const info = await this.base.getAccountInfo(ata(owner, USDC_MINT));
+    return info ? Buffer.from(info.data).readBigUInt64LE(64) : 0n;
+  }
+
+  /** Has this wallet ever moved USDC into the TEE (its ephemeral ATA is delegated)? */
+  async hasPrivateAccount(owner = this.me): Promise<boolean> {
+    const info = await this.base.getAccountInfo(eataPda(owner));
+    return !!info && info.owner.equals(DELEGATION_PROGRAM);
+  }
+
+  /**
+   * The wallet's private USDC inside the TEE (only the owner can read it). Until the wallet's
+   * EATA is delegated, the TEE only shows a read-only copy of the Solana account, so that
+   * doesn't count.
+   */
+  async privateUsdc(): Promise<bigint> {
+    if (!(await this.hasPrivateAccount())) return 0n;
+    const info = await (await this.tee()).getAccountInfo(ata(this.me, USDC_MINT));
+    return info ? Buffer.from(info.data).readBigUInt64LE(64) : 0n;
+  }
+
+  /** How much the session key may still spend from the private balance. */
+  async sessionAllowance(): Promise<bigint> {
+    if (!(await this.hasPrivateAccount())) return 0n;
+    const info = await (await this.tee()).getAccountInfo(ata(this.me, USDC_MINT));
+    if (!info) return 0n;
+    const d = Buffer.from(info.data);
+    if (d.readUInt32LE(72) !== 1) return 0n;
+    const delegate = new PublicKey(d.subarray(76, 108));
+    return delegate.equals(this.session.publicKey) ? d.readBigUInt64LE(121) : 0n;
+  }
+
+  // ---------------------------------------------------------------- reads
+
+  async fetchBreak(id: bigint, where: "tee" | "base" = "tee"): Promise<BreakState | null> {
+    const conn = where === "tee" ? await this.teeSession() : this.base;
+    const info = await conn.getAccountInfo(breakPda(id));
+    return info ? decodeBreak(info.data) : null;
+  }
+
+  async fetchReceipt(id: bigint) {
+    const info = await this.base.getAccountInfo(receiptPda(id));
+    return info ? decodeReceipt(info.data) : null;
+  }
+
+  async fetchDeck(id: bigint, nCards: number) {
+    const info = await (await this.teeSession()).getAccountInfo(deckPda(id));
+    return info ? decodeDeck(info.data, nCards) : null;
+  }
+
+  async fetchCard(mint: PublicKey) {
+    const info = await this.base.getAccountInfo(cardPda(mint));
+    return info ? decodeCard(info.data) : null;
+  }
+
+  async fetchCards(mints: PublicKey[]) {
+    const out = [];
+    for (let i = 0; i < mints.length; i += 100) {
+      const infos = await this.base.getMultipleAccountsInfo(mints.slice(i, i + 100).map(cardPda));
+      out.push(...infos.map((x) => (x ? decodeCard(x.data) : null)));
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------- base: setup + faucet
+
+  faucetIx() {
+    return ix("faucet", {}, { user: this.me, mint: USDC_MINT, ata: ata(this.me, USDC_MINT), faucet: faucetPda(this.me) });
+  }
+
+  // ---------------------------------------------------------------- base: host
+
+  createBreakIx(id: bigint, nSpots: number, perSpot: number, spotPrice: bigint, revealMs: number, title: string) {
+    return ix(
+      "create_break",
+      { break_id: bn(id), n_spots: nSpots, per_spot: perSpot, spot_price: bn(spotPrice), reveal_ms: revealMs, title: titleBytes(title) },
+      { host: this.me, mint: USDC_MINT, host_eata: eataPda(this.me), brk: breakPda(id), receipt: receiptPda(id), vault: vaultPda(id) },
+    );
+  }
+
+  depositCardIx(id: bigint, slot: number, cardMint: PublicKey) {
+    return ix(
+      "deposit_card",
+      { slot },
+      {
+        host: this.me,
+        brk: breakPda(id),
+        receipt: receiptPda(id),
+        card_mint: cardMint,
+        card: cardPda(cardMint),
+        host_card: ata(this.me, cardMint),
+        vault: vaultPda(id),
+        vault_card: ata(vaultPda(id), cardMint),
+      },
+    );
+  }
+
+  sealBreakIx(id: bigint) {
+    const brk = breakPda(id);
+    return ix("seal_break", {}, {
+      host: this.me,
+      brk,
+      validator: TEE_VALIDATOR,
+      buffer_brk: delegateBuffer(brk),
+      delegation_record_brk: delegationRecord(brk),
+      delegation_metadata_brk: delegationMetadata(brk),
+    });
+  }
+
+  // ---------------------------------------------------------------- profiles
+
+  async fetchProfile(owner = this.me, where: "tee" | "base" = "tee") {
+    const conn = where === "tee" ? await this.teeSession() : this.base;
+    const info = await conn.getAccountInfo(profilePda(owner));
+    return info ? decodeProfile(info.data) : null;
+  }
+
+  /** Base: create + delegate the profile in one transaction. */
+  createProfileIxs(name: string) {
+    const profile = profilePda(this.me);
+    return [
+      ix("create_profile", { name: fixedBytes(name, 20) }, { owner: this.me, profile }),
+      ix("delegate_profile", {}, {
+        owner: this.me,
+        profile,
+        validator: TEE_VALIDATOR,
+        buffer_profile: delegateBuffer(profile),
+        delegation_record_profile: delegationRecord(profile),
+        delegation_metadata_profile: delegationMetadata(profile),
+      }),
+    ];
+  }
+
+  /**
+   * TEE, one wallet signature: approve the session key to spend up to `allowance` of the private
+   * balance (SPL approve) and bind it to the profile, so every trade after this signs silently.
+   */
+  async startSession(allowance: bigint, rename?: string): Promise<string> {
+    const data = Buffer.alloc(9);
+    data[0] = 4; // SPL Token Approve
+    data.writeBigUInt64LE(allowance, 1);
+    const approve = new TransactionInstruction({
+      programId: TOKEN_PROGRAM,
+      keys: [
+        { pubkey: ata(this.me, USDC_MINT), isSigner: false, isWritable: true },
+        { pubkey: this.session.publicKey, isSigner: false, isWritable: false },
+        { pubkey: this.me, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+    const bind = ix("set_agent", { agent: this.session.publicKey, name: rename ? fixedBytes(rename, 20) : null }, { owner: this.me, profile: profilePda(this.me) });
+    return this.sendTeeWallet([approve, bind]);
+  }
+
+  // ---------------------------------------------------------------- TEE: sale + market
+
+  openSaleIx(id: bigint, payer: PublicKey) {
+    const brk = breakPda(id);
+    const deck = deckPda(id);
+    return ix("open_sale", {}, {
+      payer,
+      brk,
+      deck,
+      deck_permission: permissionPdaFromAccount(deck),
+      brk_permission: permissionPdaFromAccount(brk),
+    });
+  }
+
+  /** SPL transfer out of the wallet's private balance, signed by the session key (delegate). */
+  private transferIx(to: PublicKey, amount: bigint, authority = this.session.publicKey) {
+    const data = Buffer.alloc(9);
+    data[0] = 3; // SPL Token Transfer
+    data.writeBigUInt64LE(amount, 1);
+    return new TransactionInstruction({
+      programId: TOKEN_PROGRAM,
+      keys: [
+        { pubkey: ata(this.me, USDC_MINT), isSigner: false, isWritable: true },
+        { pubkey: ata(to, USDC_MINT), isSigner: false, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: false },
+      ],
+      data,
+    });
+  }
+
+  /** [pay payee][pay treasury][program ix]: the program checks the two transfers in front of it. */
+  private paid(payee: PublicKey, price: bigint, feeBps: number, programIx: TransactionInstruction, authority = this.session.publicKey) {
+    const fee = (price * BigInt(feeBps)) / 10_000n;
+    return [this.transferIx(payee, price - fee, authority), this.transferIx(ADMIN, fee, authority), programIx];
+  }
+
+  buySpotIxs(b: BreakState, spot: number, signer = this.session.publicKey) {
+    const programIx = ix("buy_spot", { spot, max_price: bn(b.spotPrice) }, { signer, profile: profilePda(this.me), brk: breakPda(b.breakId) });
+    return this.paid(b.host, b.spotPrice, SALE_FEE_BPS, programIx, signer);
+  }
+
+  buyListedIxs(b: BreakState, spot: number, signer = this.session.publicKey) {
+    const seller = b.spotOwner[spot]!;
+    const price = b.ask[spot];
+    const programIx = ix("buy_listed", { spot, max_price: bn(price) }, { signer, buyer: profilePda(this.me), seller: profilePda(seller), brk: breakPda(b.breakId) });
+    return this.paid(seller, price, TRADE_FEE_BPS, programIx, signer);
+  }
+
+  private ownerIx(name: string, id: bigint, spot: number, price: bigint, signer = this.session.publicKey) {
+    const arg = name === "list_spot" ? { spot, ask: bn(price) } : { spot, price: bn(price) };
+    return ix(name, arg, { signer, profile: profilePda(this.me), brk: breakPda(id) });
+  }
+  listSpotIx = (id: bigint, spot: number, ask: bigint) => this.ownerIx("list_spot", id, spot, ask);
+  makeOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("make_offer", id, spot, price);
+  acceptOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("accept_offer", id, spot, price);
+
+  /** Wait until an account delegated on Solana shows up in the TEE. */
+  async waitInTee(acc: PublicKey, ms = 30_000) {
+    const conn = await this.teeSession();
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      if (await conn.getAccountInfo(acc)) return;
+      await sleep(500);
+    }
+    throw new Error(`${acc.toBase58()} never reached the TEE`);
+  }
+}
+
+export class TxError extends Error {
+  constructor(public sig: string, public err: unknown, public where: "base" | "tee") {
+    super(`${where} transaction failed: ${JSON.stringify(err)} (${sig})`);
+  }
+}
+
+export const budget = (units = 1_400_000) => ComputeBudgetProgram.setComputeUnitLimit({ units });
+export { magicFeeVaultPdaFromValidator };

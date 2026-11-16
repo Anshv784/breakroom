@@ -58,4 +58,14 @@ pub enum BreakError {
     NotTee,
     #[msg("Host needs a private USDC balance first (make any deposit)")]
     HostNotReady,
+    #[msg("Payment instructions missing in front of this one")]
+    PaymentMissing,
+    #[msg("Payment doesn't match: wrong payer, payee or amount")]
+    PaymentMismatch,
+    #[msg("This spot is reserved for another buyer for a few seconds")]
+    Reserved,
+    #[msg("This key can't act for that profile")]
+    NotYourProfile,
+    #[msg("Name must be 2-20 letters, numbers, _ or -")]
+    BadName,
 }
