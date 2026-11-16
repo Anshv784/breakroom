@@ -44,6 +44,7 @@
         "bump": 9368,
         "vault_bump": 9369,
         "seed_source": 9370,
+        "settle_sent": 9371,
         "__size": 9376
     },
     "Trade": {

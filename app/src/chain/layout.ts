@@ -87,6 +87,7 @@ export interface BreakState {
   revealMs: number;
   /** 1 = VRF, 2 = TEE fallback, 0 = not yet */
   seedSource: number;
+  settleSent: boolean;
 }
 
 const orNull = (k: PublicKey) => (k.toBase58() === ZERO ? null : k);
@@ -149,6 +150,7 @@ export function decodeBreak(data: Uint8Array): BreakState {
     nTrades,
     revealMs: r.u32(o.reveal_ms),
     seedSource: r.u8(o.seed_source),
+    settleSent: r.u8(o.settle_sent) === 1,
   };
 }
 

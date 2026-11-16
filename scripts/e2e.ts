@@ -116,11 +116,11 @@ while ((b = (await A.fetchBreak(id))!).status === ST.LIVE) {
 }
 check(b.status === ST.ENDED && b.revealed.every((c) => c >= 0), "every card revealed by the crank");
 
-// 7. finish: unseal the Deck, commit + Magic Action writes the Receipt on Solana
-console.log("  finish", await A.sendSession([A.finishIx(id)]));
-const deck = (await A.fetchDeck(id, 4))!;
+// 7. the crank settles by itself: unseals the Deck, commits, Magic Action writes the Receipt
+let deck: Awaited<ReturnType<typeof A.fetchDeck>> = null;
+for (let i = 0; i < 30 && !(deck = await A.fetchDeck(id, 4).catch(() => null)); i++) await sleep(1000);
 check(!!deck && deck.seeded, "Deck is public after the break");
-const re = shuffle(deck.randomness, 4, 2);
+const re = shuffle(deck!.randomness, 4, 2);
 check(b.revealed.every((c, pos) => re.order[pos] === c) && re.spots.every((s, i) => s === b.openOrder[i]), "re-ran the shuffle from the seed: every position matches");
 check(hex(commitment(id, b.cards, b.cardValue)) === hex(b.commitment), "box commitment matches the cards");
 let receipt = await A.fetchReceipt(id);

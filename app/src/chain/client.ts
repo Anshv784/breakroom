@@ -632,8 +632,24 @@ export class BreakroomClient {
 
   // ---------------------------------------------------------------- TEE: the live break
 
+  /** Start + schedule the crank that reveals every card and then settles the break by itself. */
   startBreakIx(id: bigint, payer = this.session.publicKey) {
-    return ix("start_break", { client_seed: Math.floor(Math.random() * 256) }, { payer, brk: breakPda(id), deck: deckPda(id), profile: profilePda(this.me) });
+    const deck = deckPda(id);
+    const w = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: true });
+    const r = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: false });
+    return ix("start_break", { client_seed: Math.floor(Math.random() * 256) }, { payer, brk: breakPda(id), deck, profile: profilePda(this.me) }, [
+      w(permissionPdaFromAccount(deck)),
+      r(receiptPda(id)),
+      r(statsPda()),
+      w(magicFeeVaultPdaFromValidator(TEE_VALIDATOR)),
+      r(PERMISSION_PROGRAM_ID),
+      w(EPHEMERAL_VAULT_ID),
+      w(MAGIC_CONTEXT_ID),
+    ]);
+  }
+
+  rearmSettleIx(id: bigint) {
+    return ix("rearm_settle", {}, { brk: breakPda(id), deck: deckPda(id) });
   }
 
   fallbackShuffleIx(id: bigint, payer = this.session.publicKey) {
@@ -644,10 +660,9 @@ export class BreakroomClient {
     return ix("reveal", {}, { brk: breakPda(id), deck: deckPda(id) });
   }
 
-  finishIx(id: bigint, payer = this.session.publicKey) {
+  finishIx(id: bigint) {
     const deck = deckPda(id);
     return ix("finish", {}, {
-      payer,
       brk: breakPda(id),
       deck,
       deck_permission: permissionPdaFromAccount(deck),
