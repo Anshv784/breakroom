@@ -52,4 +52,22 @@ pub mod breakroom {
     pub fn appraise(ctx: Context<Appraise>, value: u64, tier: u8, grade: u8, cert: u64, name: [u8; 32], set: [u8; 24], art: u32) -> Result<()> {
         instructions::admin::handle_appraise(ctx, value, tier, grade, cert, name, set, art)
     }
+
+    // ---- Solana: the host builds a break
+
+    pub fn create_break(ctx: Context<CreateBreak>, break_id: u64, n_spots: u8, per_spot: u8, spot_price: u64, reveal_ms: u32, title: [u8; 48]) -> Result<()> {
+        instructions::host::handle_create_break(ctx, break_id, n_spots, per_spot, spot_price, reveal_ms, title)
+    }
+
+    pub fn deposit_card(ctx: Context<DepositCard>, slot: u8) -> Result<()> {
+        instructions::host::handle_deposit_card(ctx, slot)
+    }
+
+    pub fn withdraw_card(ctx: Context<WithdrawCard>, slot: u8) -> Result<()> {
+        instructions::host::handle_withdraw_card(ctx, slot)
+    }
+
+    pub fn seal_break(ctx: Context<SealBreak>) -> Result<()> {
+        instructions::host::handle_seal_break(ctx)
+    }
 }
