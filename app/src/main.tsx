@@ -8,6 +8,8 @@ import { useApp } from "./state/store";
 import { detectWallets } from "./state/wallet";
 
 (globalThis as any).Buffer ??= Buffer;
+// lets the UI test (and the console) force a balance refresh
+(window as any).__refresh = () => useApp.getState().refresh();
 
 const Home = lazy(() => import("./pages/Home"));
 const Lobby = lazy(() => import("./pages/Lobby"));

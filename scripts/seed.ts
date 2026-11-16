@@ -14,7 +14,7 @@ const arg = (k: string, d?: string) => {
 const title = arg("title", "Genesis Night")!;
 const spots = Number(arg("spots", "8"));
 const per = Number(arg("per", "3"));
-const price = BigInt(Math.round(Number(arg("price", "12")) * 1e6));
+const priceArg = arg("price");
 const fill = Number(arg("fill", "0"));
 const revealMs = Number(arg("reveal", "2600"));
 const start = process.argv.includes("--start");
@@ -32,6 +32,10 @@ for (const s of specs) mints.push(await mintCard(A, H.me, s));
 // shuffle slot order so the box list isn't sorted by rarity
 const order = mints.map((m, i) => ({ m, k: Math.random() })).sort((a, b) => a.k - b.k).map((x) => x.m);
 
+// default spot price: ~90% of fair value (box value / spots), like a real breaker would
+const boxUsd = specs.reduce((a, x) => a + x.value, 0);
+const price = BigInt(Math.round((priceArg ? Number(priceArg) : Math.max(1, Math.round((boxUsd / spots) * 0.9))) * 1e6));
+console.log(`box $${boxUsd}, spot price $${Number(price) / 1e6}`);
 const id = BigInt(Date.now());
 await H.sendBase([H.createBreakIx(id, spots, per, price, revealMs, title)]);
 for (let i = 0; i < order.length; i += 4) await H.sendBase(order.slice(i, i + 4).map((m, k) => H.depositCardIx(id, i + k, m)));
