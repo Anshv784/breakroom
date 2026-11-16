@@ -143,7 +143,9 @@ pub struct Break {
     pub vault_bump: u8,
     /// 1 = shuffled from VRF; 2 = the VRF never answered and the TEE seeded it (flagged in the UI).
     pub seed_source: u8,
-    pub _pad: [u8; 5],
+    /// The settling commit has been sent (the crank tries every interval; only the first counts).
+    pub settle_sent: u8,
+    pub _pad: [u8; 4],
 }
 
 impl Break {
@@ -283,7 +285,7 @@ mod layout_tests {
                 s
             }};
         }
-        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source);
+        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent);
         let trade = offs!(Trade; price, ts, buyer, seller, spot, kind);
         let receipt = offs!(Receipt; break_id, host_paid, settled_at, host, cards, recipient, claimed, n_cards, settled, bump);
         let deck = offs!(Deck; magic, seeded, break_id, randomness, order);

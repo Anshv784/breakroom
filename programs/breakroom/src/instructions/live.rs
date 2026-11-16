@@ -85,7 +85,29 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
         accounts: vec![AccountMeta::new(ctx.accounts.brk.key(), false), AccountMeta::new_readonly(ctx.accounts.deck.key(), false)],
         data: anchor_lang::InstructionData::data(&crate::instruction::Reveal {}),
     };
-    let accs = [ctx.accounts.brk.to_account_info(), ctx.accounts.deck.to_account_info()];
+    // ...and right behind it, the settle: a no-op until the last card is out, then it unseals the
+    // Deck and commits with the Magic Action, once. The whole break runs itself.
+    let r = &ctx.remaining_accounts;
+    require!(r.len() >= 7, BreakError::BadAccount);
+    let finish_ix = Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(ctx.accounts.brk.key(), false),
+            AccountMeta::new(ctx.accounts.deck.key(), false),
+            AccountMeta::new(r[0].key(), false),
+            AccountMeta::new_readonly(r[1].key(), false),
+            AccountMeta::new_readonly(r[2].key(), false),
+            AccountMeta::new_readonly(PERMISSION_PROGRAM_ID, false),
+            AccountMeta::new(EPHEMERAL_VAULT_ID, false),
+            AccountMeta::new_readonly(MAGIC_PROGRAM_ID, false),
+            AccountMeta::new(MAGIC_CONTEXT_ID, false),
+            AccountMeta::new(r[3].key(), false),
+        ],
+        data: anchor_lang::InstructionData::data(&crate::instruction::Finish {}),
+    };
+    // remaining: deck_permission, receipt, stats, magic_fee_vault, permission program, ephemeral vault, magic context
+    let mut accs = vec![ctx.accounts.brk.to_account_info(), ctx.accounts.deck.to_account_info(), ctx.accounts.magic_program.to_account_info()];
+    accs.extend(r.iter().take(7).cloned());
     ScheduleCrankCpi {
         payer: &ctx.accounts.payer,
         magic_program: &ctx.accounts.magic_program,
@@ -95,7 +117,7 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
             execution_interval_millis: reveal_ms as i64,
             // the shuffle wait + intro, then one run per card, with slack for late runs
             iterations: n_cards as i64 + 40,
-            instructions: vec![reveal_ix],
+            instructions: vec![reveal_ix, finish_ix],
         },
     }
     .invoke()
@@ -293,8 +315,12 @@ pub struct Reveal<'info> {
 /// commit the break to Solana and record the result there through a Magic Action.
 pub fn handle_finish(ctx: Context<Finish>) -> Result<()> {
     let id = {
-        let b = ctx.accounts.brk.load()?;
-        require!(b.status == ST_ENDED, BreakError::WrongStage);
+        let mut b = ctx.accounts.brk.load_mut()?;
+        // the crank calls this every interval: nothing to do until the end, and only once after
+        if b.status != ST_ENDED || b.settle_sent == 1 {
+            return Ok(());
+        }
+        b.settle_sent = 1;
         b.break_id
     };
     let idb = id.to_le_bytes();
@@ -332,10 +358,17 @@ pub fn handle_finish(ctx: Context<Finish>) -> Result<()> {
     Ok(())
 }
 
+/// If the settling commit never reached Solana, anyone may re-arm it a minute after the end.
+pub fn handle_rearm_settle(ctx: Context<Reveal>) -> Result<()> {
+    let mut b = ctx.accounts.brk.load_mut()?;
+    require!(b.status == ST_ENDED && b.settle_sent == 1, BreakError::WrongStage);
+    require!(Clock::get()?.unix_timestamp >= b.ended_at + 60, BreakError::TooEarly);
+    b.settle_sent = 0;
+    Ok(())
+}
+
 #[derive(Accounts)]
 pub struct Finish<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
     #[account(mut, seeds = [BREAK_SEED, &brk.load()?.break_id.to_le_bytes()], bump)]
     pub brk: AccountLoader<'info, Break>,
     /// CHECK: the Deck PDA

@@ -124,6 +124,10 @@ pub mod breakroom {
         instructions::live::handle_finish(ctx)
     }
 
+    pub fn rearm_settle(ctx: Context<Reveal>) -> Result<()> {
+        instructions::live::handle_rearm_settle(ctx)
+    }
+
     // ---- Solana: settlement (Magic Action) + delivery
 
     pub fn settle<'info>(ctx: Context<'info, Settle<'info>>) -> Result<()> {
