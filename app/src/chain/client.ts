@@ -135,6 +135,8 @@ export interface WalletLike {
   publicKey: PublicKey;
   signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T>;
   signMessage(msg: Uint8Array): Promise<Uint8Array>;
+  /** Sign several at once (one wallet popup). */
+  signAllTransactions?<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]>;
 }
 
 export const keypairWallet = (kp: Keypair): WalletLike => ({
@@ -146,6 +148,13 @@ export const keypairWallet = (kp: Keypair): WalletLike => ({
   },
   async signMessage(m) {
     return nacl.sign.detached(m, kp.secretKey);
+  },
+  async signAllTransactions(txs) {
+    for (const tx of txs) {
+      if (tx instanceof VersionedTransaction) tx.sign([kp]);
+      else tx.partialSign(kp);
+    }
+    return txs;
   },
 });
 
@@ -214,6 +223,31 @@ export class BreakroomClient {
     const raw = signed.serialize();
     const sig = await this.base.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
     return this.confirm(this.base, sig, raw, lastValidBlockHeight, true);
+  }
+
+  /**
+   * Several base-layer transactions signed in one wallet popup, then sent in order (each waits
+   * for the previous to confirm). `onStep` reports progress.
+   */
+  async sendBaseMany(groups: TransactionInstruction[][], onStep?: (i: number, sig: string) => void): Promise<string[]> {
+    const { blockhash } = await this.base.getLatestBlockhash("confirmed");
+    const txs = groups.map((ixs) => {
+      const tx = new Transaction().add(...ixs);
+      tx.feePayer = this.me;
+      tx.recentBlockhash = blockhash;
+      return tx;
+    });
+    const signed = this.wallet.signAllTransactions ? await this.wallet.signAllTransactions(txs) : await Promise.all(txs.map((t) => this.wallet.signTransaction(t)));
+    const sigs: string[] = [];
+    for (let i = 0; i < signed.length; i++) {
+      const raw = signed[i].serialize();
+      const sig = await this.base.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
+      const { lastValidBlockHeight } = await this.base.getLatestBlockhash("confirmed");
+      await this.confirm(this.base, sig, raw, lastValidBlockHeight, true);
+      sigs.push(sig);
+      onStep?.(i, sig);
+    }
+    return sigs;
   }
 
   /** TEE, signed by the session key: free, instant, no popup. */
@@ -399,6 +433,17 @@ export class BreakroomClient {
     return info ? decodeCard(info.data) : null;
   }
 
+  /** Card NFTs in a wallet that the appraisal desk has priced. */
+  async walletCards(owner = this.me) {
+    const res = await this.base.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM });
+    const mints = res.value
+      .map((a) => a.account.data.parsed.info)
+      .filter((i: any) => i.tokenAmount.decimals === 0 && i.tokenAmount.amount === "1")
+      .map((i: any) => new PublicKey(i.mint));
+    const infos = await this.fetchCards(mints);
+    return infos.filter((x): x is NonNullable<typeof x> => !!x);
+  }
+
   async fetchCards(mints: PublicKey[]) {
     const out = [];
     for (let i = 0; i < mints.length; i += 100) {
@@ -412,6 +457,31 @@ export class BreakroomClient {
 
   faucetIx() {
     return ix("faucet", {}, { user: this.me, mint: USDC_MINT, ata: ata(this.me, USDC_MINT), faucet: faucetPda(this.me) });
+  }
+
+  // ---------------------------------------------------------------- base: devnet demo box
+
+  /** Instruction groups minting a demo Genesis box with a real rarity curve (devnet only). */
+  demoBoxIxs(n = 12): TransactionInstruction[][] {
+    const tiers = [4, 3, 2, 2, ...Array(Math.round(n * 0.3)).fill(1)];
+    while (tiers.length < n) tiers.push(0);
+    tiers.length = n;
+    const ixs = tiers.map((tier) => {
+      const nonce = Math.floor(Math.random() * 0xffffffff);
+      const nb = Buffer.alloc(4);
+      nb.writeUInt32LE(nonce);
+      const mint = pda([Buffer.from("demo"), this.me.toBuffer(), nb]);
+      return ix("demo_card", { nonce, tier, art: Math.floor(Math.random() * 32) }, {
+        user: this.me,
+        mint,
+        ata: ata(this.me, mint),
+        card: cardPda(mint),
+        quota: pda([Buffer.from("demoq"), this.me.toBuffer()]),
+      });
+    });
+    const groups: TransactionInstruction[][] = [];
+    for (let i = 0; i < ixs.length; i += 4) groups.push([budget(600_000), ...ixs.slice(i, i + 4)]);
+    return groups;
   }
 
   // ---------------------------------------------------------------- base: host

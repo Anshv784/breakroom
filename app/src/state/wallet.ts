@@ -51,6 +51,15 @@ export async function connectStandard(w: Wallet): Promise<WalletLike> {
       const [out] = await signMsg.signMessage({ account, message: m });
       return out.signature as Uint8Array;
     },
+    async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
+      const inputs = txs.map((tx) => ({
+        account,
+        chain: CHAIN,
+        transaction: tx instanceof VersionedTransaction ? tx.serialize() : tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+      }));
+      const outs = await signTx.signTransaction(...inputs);
+      return outs.map((o: any, i: number) => (txs[i] instanceof VersionedTransaction ? VersionedTransaction.deserialize(o.signedTransaction) : Transaction.from(o.signedTransaction)) as T);
+    },
   };
 }
 
