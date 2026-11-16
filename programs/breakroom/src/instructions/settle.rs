@@ -20,11 +20,10 @@ pub fn handle_settle<'info>(ctx: Context<'info, Settle<'info>>) -> Result<()> {
         .any(|a| a.key() == expected && a.is_signer);
     require!(signed, BreakError::BadAccount);
 
-    let b: Break = {
-        let data = ctx.accounts.brk.try_borrow_data()?;
-        require!(data.len() >= 8 + core::mem::size_of::<Break>(), BreakError::BadAccount);
-        *bytemuck::from_bytes::<Break>(&data[8..8 + core::mem::size_of::<Break>()])
-    };
+    // Read the committed bytes in place: Break is ~9 KB, more than twice the SBF stack.
+    let data = ctx.accounts.brk.try_borrow_data()?;
+    require!(data.len() >= 8 + core::mem::size_of::<Break>(), BreakError::BadAccount);
+    let b: &Break = bytemuck::from_bytes(&data[8..8 + core::mem::size_of::<Break>()]);
     let mut r = ctx.accounts.receipt.load_mut()?;
     require!(r.break_id == b.break_id, BreakError::BadAccount);
     if r.settled == 1 || b.status != ST_ENDED {

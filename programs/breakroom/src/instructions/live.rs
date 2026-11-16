@@ -40,7 +40,11 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
         let mut b = ctx.accounts.brk.load_mut()?;
         require!(b.status == ST_SELLING, BreakError::WrongStage);
         require!(!ctx.accounts.deck.data_is_empty(), BreakError::WrongStage);
-        let host_start = caller == b.host && b.sold > 0;
+        // the host's wallet, or the session key bound to the host's profile
+        let p = &ctx.accounts.profile;
+        require!(p.acts(&caller), BreakError::NotYourProfile);
+        let is_host = p.owner == b.host;
+        let host_start = is_host && b.sold > 0;
         let auto_start = b.sold == b.n_spots && now >= b.sold_out_at + AUTO_START_SECS;
         require!(host_start || auto_start, BreakError::TooEarly);
         let host = b.host;
@@ -72,7 +76,7 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
         ]),
         ..Default::default()
     });
-    ctx.accounts.invoke_signed_vrf(&ctx.accounts.payer.to_account_info(), &ix)?;
+    ctx.accounts.invoke_signed_vrf(&ctx.accounts.payer.to_account_info(), &ix).map_err(|_| error!(BreakError::VrfRequestFailed))?;
 
     // 2. Crank: one reveal every `reveal_ms`, run by the validator itself. No server anywhere.
     let task_id = ctx.accounts.brk.load()?.crank_task;
@@ -94,7 +98,8 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
             instructions: vec![reveal_ix],
         },
     }
-    .invoke()?;
+    .invoke()
+    .map_err(|_| error!(BreakError::CrankFailed))?;
     Ok(())
 }
 
@@ -103,6 +108,9 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
 pub struct StartBreak<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
+    /// The caller's profile (wallet or its session key): the host may start early.
+    #[account(seeds = [PROFILE_SEED, profile.owner.as_ref()], bump = profile.bump)]
+    pub profile: Account<'info, Profile>,
     #[account(mut, seeds = [BREAK_SEED, &brk.load()?.break_id.to_le_bytes()], bump)]
     pub brk: AccountLoader<'info, Break>,
     /// CHECK: the sealed Deck PDA

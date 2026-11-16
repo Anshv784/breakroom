@@ -68,4 +68,8 @@ pub enum BreakError {
     NotYourProfile,
     #[msg("Name must be 2-20 letters, numbers, _ or -")]
     BadName,
+    #[msg("The VRF request failed")]
+    VrfRequestFailed,
+    #[msg("Scheduling the reveal crank failed")]
+    CrankFailed,
 }
