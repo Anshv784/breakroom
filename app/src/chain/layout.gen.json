@@ -43,6 +43,7 @@
         "reveal_ms": 9364,
         "bump": 9368,
         "vault_bump": 9369,
+        "seed_source": 9370,
         "__size": 9376
     },
     "Trade": {
