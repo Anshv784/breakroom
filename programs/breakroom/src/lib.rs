@@ -70,4 +70,14 @@ pub mod breakroom {
     pub fn seal_break(ctx: Context<SealBreak>) -> Result<()> {
         instructions::host::handle_seal_break(ctx)
     }
+
+    // ---- TEE: the sale
+
+    pub fn open_sale(ctx: Context<OpenSale>) -> Result<()> {
+        instructions::sale::handle_open_sale(ctx)
+    }
+
+    pub fn buy_spot(ctx: Context<BuySpot>, spot: u8, max_price: u64) -> Result<()> {
+        instructions::sale::handle_buy_spot(ctx, spot, max_price)
+    }
 }
