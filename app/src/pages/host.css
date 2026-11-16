@@ -1,0 +1,154 @@
+.host {
+  padding: 40px 24px 80px;
+}
+.host h1 {
+  font-size: 36px;
+  margin: 8px 0 24px;
+}
+.host h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.host-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 16px;
+  align-items: start;
+}
+.host-cards,
+.host-form {
+  padding: 20px;
+}
+.host-form {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 80px;
+}
+.host-sec-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.host-sec-head p {
+  margin: 0;
+  font-size: 13px;
+}
+.card-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+}
+.pick {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.pick img {
+  width: 100%;
+  border-radius: 6px;
+  filter: saturate(0.7) brightness(0.8);
+  transition: filter 0.2s;
+}
+.pick:hover img,
+.pick.on img {
+  filter: none;
+}
+.pick.on {
+  background: rgba(181, 140, 255, 0.1);
+  border-color: rgba(181, 140, 255, 0.5);
+}
+.pick:active {
+  transform: scale(0.97);
+}
+.empty {
+  padding: 40px;
+  text-align: center;
+}
+.empty p {
+  margin: 4px 0;
+}
+.seg {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.seg button {
+  all: unset;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.seg button.on {
+  color: var(--text);
+  border-color: var(--foil-b);
+  background: rgba(181, 140, 255, 0.12);
+}
+.summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.summary div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.summary span {
+  color: var(--text-3);
+}
+.progress {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.progress li {
+  color: var(--text-3);
+  padding-left: 22px;
+  position: relative;
+}
+.progress li::before {
+  content: "○";
+  position: absolute;
+  left: 0;
+}
+.progress li.done {
+  color: var(--text-2);
+}
+.progress li.done::before {
+  content: "✓";
+  color: var(--up);
+}
+.progress li.now {
+  color: var(--text);
+}
+.progress li.now::before {
+  content: "◐";
+  color: var(--foil-b);
+  animation: pulse 1s infinite;
+}
+@media (max-width: 960px) {
+  .host-grid {
+    grid-template-columns: 1fr;
+  }
+  .host-form {
+    position: static;
+  }
+}
