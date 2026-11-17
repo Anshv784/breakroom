@@ -156,11 +156,11 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
   return (
-    <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.9, 4.55], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 1.9, 4.55], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
       <color attach="background" args={["#07060a"]} />
       <fog attach="fog" args={["#07060a", 8, 16]} />
       <ambientLight intensity={0.5} />
-      <spotLight position={[0, 6.5, 1.5]} angle={0.62} penumbra={0.85} intensity={140} color="#fff1dc" />
+      <spotLight position={[0, 6.5, 1.5]} angle={0.8} penumbra={1} intensity={38} color="#f4eefa" />
       <directionalLight position={[0, 3.5, 7]} intensity={1.4} color="#e9e2ff" />
       <pointLight position={[-4.5, 2.2, 1.5]} intensity={18} color="#7cf7e4" />
       <pointLight position={[4.5, 2.2, 1.5]} intensity={18} color="#b58cff" />
@@ -238,7 +238,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
         })}
         <Sparkles count={50} scale={[9, 3, 6]} position={[0, 1.6, 0]} size={1.6} speed={0.2} color="#cdb9ff" opacity={0.35} />
         <EffectComposer>
-          <Bloom intensity={0.7} luminanceThreshold={0.6} luminanceSmoothing={0.25} mipmapBlur />
+          <Bloom intensity={0.3} luminanceThreshold={0.9} luminanceSmoothing={0.15} mipmapBlur />
           <Vignette eskil={false} offset={0.22} darkness={0.9} />
         </EffectComposer>
       </Suspense>
@@ -261,7 +261,6 @@ function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick
       const a = t * 2.4 + s * 1.3;
       want = new THREE.Vector3(Math.cos(a) * 1.25, 0.9 + Math.sin(t * 3 + s) * 0.15, Math.sin(a) * 0.9 - 0.3);
     }
-    if (selected && !opening && !shuffling) want.y += 0.12;
     o.position.lerp(want, opening || shuffling ? 0.08 : 0.1);
     const yaw = opening ? 0 : shuffling ? t * 2 + s : home.yaw;
     o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw, 0.1);
@@ -287,7 +286,7 @@ function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick
       onPointerOver={() => (document.body.style.cursor = "pointer")}
       onPointerOut={() => (document.body.style.cursor = "")}
     >
-      <Pack3D spot={s} art={art} tear={tearV} highlight={selected} />
+      <Pack3D spot={s} art={art} tear={tearV} />
     </group>
   );
 }

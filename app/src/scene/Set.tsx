@@ -20,7 +20,9 @@ export function Studio({ status }: { status: number }) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const fast = status === ST.SHUFFLING ? 6 : status === ST.LIVE ? 2 : 0.8;
-    mats.current.forEach((m, i) => m && (m.opacity = 0.08 + 0.14 * (0.5 + 0.5 * Math.sin(t * fast + i * 0.7))));
+    mats.current.forEach((m) => m && (m.opacity = 0.12));
+    void t;
+    void fast;
   });
   return (
     <group>
@@ -67,7 +69,8 @@ export function TableTop({ status }: { status: number }) {
   useFrame(({ clock }) => {
     if (rim.current) {
       rim.current.color.lerp(new THREE.Color(color), 0.05);
-      rim.current.opacity = 0.55 + 0.25 * Math.sin(clock.elapsedTime * (status === ST.LIVE ? 3 : 1.2));
+      rim.current.opacity = 0.6;
+      void clock;
     }
   });
   return (
@@ -75,17 +78,17 @@ export function TableTop({ status }: { status: number }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <circleGeometry args={[4.3, 128]} />
         <MeshReflectorMaterial
-          blur={[600, 300]}
+          blur={[800, 400]}
           resolution={1024}
           mixBlur={1.4}
-          mixStrength={9}
+          mixStrength={2}
           roughness={0.85}
           depthScale={1}
           minDepthThreshold={0.4}
           maxDepthThreshold={1.4}
           color="#151019"
           metalness={0.55}
-          mirror={0.3}
+          mirror={0.18}
         />
       </mesh>
       {/* inner ring markings */}
@@ -139,7 +142,8 @@ export function SpotStand({
   const edge = mine ? "#4fe3a1" : selected ? "#ffd27a" : owned ? "#b58cff" : "#7cf7e4";
   const glow = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(({ clock }) => {
-    if (glow.current) glow.current.opacity = (selected ? 0.55 : owned ? 0.28 : 0.18) + (selected ? 0.15 * Math.sin(clock.elapsedTime * 4) : 0);
+    if (glow.current) glow.current.opacity = selected ? 0.45 : owned ? 0.24 : 0.16;
+    void clock;
   });
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, yaw, 0]}>
@@ -251,7 +255,7 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
       </group>
       {/* glass vault */}
       <RoundedBox args={[0.78, 0.78, 0.78]} radius={0.06} smoothness={4} position={[0, 0.5, 0]}>
-        <MeshTransmissionMaterial thickness={0.25} roughness={status >= ST.ENDED ? 0.02 : 0.12} transmission={1} ior={1.3} chromaticAberration={0.06} anisotropy={0.2} distortion={0.1} distortionScale={0.2} temporalDistortion={0.05} color={color} backside={false} />
+        <MeshTransmissionMaterial thickness={0.25} roughness={status >= ST.ENDED ? 0.2 : 0.3} transmission={1} ior={1.3} chromaticAberration={0.06} anisotropy={0.2} distortion={0.1} distortionScale={0.2} temporalDistortion={0.05} color={color} backside={false} />
       </RoundedBox>
       {/* orbiting scan rings */}
       <group ref={rings} position={[0, 0.5, 0]}>
@@ -262,7 +266,7 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
           </mesh>
         ))}
       </group>
-      <pointLight color={color} intensity={2.2} distance={2.2} position={[0, 0.6, 0.7]} />
+      <pointLight color={color} intensity={0.7} distance={1.6} position={[0, 0.6, 0.7]} />
       <Html center position={[0, -0.12, 0.75]} distanceFactor={5} style={{ pointerEvents: "none" }}>
         <div
           style={{

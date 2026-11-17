@@ -41,7 +41,6 @@ export function Pack3D({ spot, art, tear = 0, highlight = false, ...props }: { s
       t.rotation.set(-e * 0.7, 0, -e * 1.1);
       t.visible = tear < 0.98;
     }
-    if (glowRef.current) glowRef.current.opacity = highlight ? 0.35 + Math.sin(clock.elapsedTime * 4) * 0.15 : 0;
   });
   return (
     <group {...props}>
