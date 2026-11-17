@@ -33,7 +33,9 @@ pub fn handle_settle<'info>(ctx: Context<'info, Settle<'info>>) -> Result<()> {
     for pos in 0..b.cards_total() {
         let card = b.revealed[pos];
         require!(card > 0, BreakError::WrongStage);
-        r.recipient[(card - 1) as usize] = b.spot_owner[pos / per];
+        let c = (card - 1) as usize;
+        let spot = if b.teams() { b.spot_of_elem(b.card_elem[c]).unwrap_or(0) } else { pos / per };
+        r.recipient[c] = b.spot_owner[spot];
     }
     r.host_paid = b.host_revenue;
     r.settled = 1;
@@ -107,6 +109,89 @@ pub struct Claim<'info> {
     pub vault_card: Account<'info, TokenAccount>,
     #[account(init_if_needed, payer = payer, associated_token::mint = card_mint, associated_token::authority = recipient)]
     pub recipient_card: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Instant buyback (Solana): sell a delivered card back to the desk's pool for 85% of its
+// appraised value. The pool is a program-owned USDC account on Solana, so the program can pay
+// out directly; the card joins the pool's inventory.
+
+pub fn handle_sell_back(ctx: Context<SellBack>) -> Result<()> {
+    let card = &ctx.accounts.card;
+    require_keys_eq!(card.mint, ctx.accounts.card_mint.key(), BreakError::NotAppraised);
+    let pay = (card.value as u128 * BUYBACK_BPS as u128 / BPS as u128) as u64;
+    require!(ctx.accounts.pool_usdc.amount >= pay, BreakError::PoolEmpty);
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.key(),
+            Transfer { from: ctx.accounts.user_card.to_account_info(), to: ctx.accounts.pool_card.to_account_info(), authority: ctx.accounts.user.to_account_info() },
+        ),
+        1,
+    )?;
+    let seeds: &[&[u8]] = &[POOL_SEED, &[ctx.bumps.pool]];
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.key(),
+            Transfer { from: ctx.accounts.pool_usdc.to_account_info(), to: ctx.accounts.user_usdc.to_account_info(), authority: ctx.accounts.pool.to_account_info() },
+            &[seeds],
+        ),
+        pay,
+    )
+}
+
+#[derive(Accounts)]
+pub struct SellBack<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub card_mint: Account<'info, Mint>,
+    #[account(seeds = [CARD_SEED, card_mint.key().as_ref()], bump = card.bump)]
+    pub card: Account<'info, Card>,
+    #[account(mut, token::mint = card_mint, token::authority = user)]
+    pub user_card: Account<'info, TokenAccount>,
+    /// CHECK: pool authority PDA
+    #[account(seeds = [POOL_SEED], bump)]
+    pub pool: UncheckedAccount<'info>,
+    #[account(init_if_needed, payer = user, associated_token::mint = card_mint, associated_token::authority = pool)]
+    pub pool_card: Account<'info, TokenAccount>,
+    pub usdc_mint: Account<'info, Mint>,
+    #[account(mut, associated_token::mint = usdc_mint, associated_token::authority = pool)]
+    pub pool_usdc: Account<'info, TokenAccount>,
+    #[account(init_if_needed, payer = user, associated_token::mint = usdc_mint, associated_token::authority = user)]
+    pub user_usdc: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Admin: top up the buyback pool (devnet: mints test USDC into it).
+pub fn handle_fund_pool(ctx: Context<FundPool>, amount: u64) -> Result<()> {
+    require_keys_eq!(ctx.accounts.admin.key(), ADMIN, BreakError::NotAdmin);
+    let seeds: &[&[u8]] = &[MINT_SEED, &[ctx.bumps.usdc_mint]];
+    token::mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.key(),
+            token::MintTo { mint: ctx.accounts.usdc_mint.to_account_info(), to: ctx.accounts.pool_usdc.to_account_info(), authority: ctx.accounts.usdc_mint.to_account_info() },
+            &[seeds],
+        ),
+        amount,
+    )
+}
+
+#[derive(Accounts)]
+pub struct FundPool<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    /// CHECK: pool authority PDA
+    #[account(seeds = [POOL_SEED], bump)]
+    pub pool: UncheckedAccount<'info>,
+    #[account(mut, seeds = [MINT_SEED], bump)]
+    pub usdc_mint: Account<'info, Mint>,
+    #[account(init_if_needed, payer = admin, associated_token::mint = usdc_mint, associated_token::authority = pool)]
+    pub pool_usdc: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,

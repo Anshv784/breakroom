@@ -39,6 +39,7 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
     let (id, n_cards, reveal_ms) = {
         let mut b = ctx.accounts.brk.load_mut()?;
         require!(b.status == ST_SELLING, BreakError::WrongStage);
+        require!(b.sale != SALE_AUCTION, BreakError::AuctionRunning);
         require!(!ctx.accounts.deck.data_is_empty(), BreakError::WrongStage);
         // the host's wallet, or the session key bound to the host's profile
         let p = &ctx.accounts.profile;
@@ -116,7 +117,7 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
             task_id: task_id as i64,
             execution_interval_millis: reveal_ms as i64,
             // the shuffle wait + intro, then one run per card, with slack for late runs
-            iterations: n_cards as i64 + 40,
+            iterations: n_cards as i64 + MAX_SPOTS as i64 + 40,
             instructions: vec![reveal_ix, finish_ix],
         },
     }
@@ -202,10 +203,28 @@ pub fn shuffle(seed: [u8; 32], n_cards: usize, n_spots: usize) -> ([u8; MAX_CARD
     (order, spots)
 }
 
+/// Team mode: deal the 8 elements across the spots (shuffled, round-robin), as bitmasks.
+pub fn deal_teams(seed: [u8; 32], n_spots: usize) -> [u8; MAX_SPOTS] {
+    let mut st = Stream::new(hashv(&[&seed, b"teams"]).to_bytes());
+    let mut elems = [0u8, 1, 2, 3, 4, 5, 6, 7];
+    for i in (1..8).rev() {
+        let j = st.below(i as u32 + 1) as usize;
+        elems.swap(i, j);
+    }
+    let mut out = [0u8; MAX_SPOTS];
+    for (i, e) in elems.iter().enumerate() {
+        out[i % n_spots] |= 1 << e;
+    }
+    out
+}
+
 fn seed_break(b: &mut Break, deck: &mut Deck, seed: [u8; 32], source: u8) -> Result<()> {
     let (order, spots) = shuffle(seed, b.cards_total(), b.n_spots as usize);
     deck.randomness = seed;
     deck.order = order;
+    if b.teams() {
+        deck.spot_elems = deal_teams(seed, b.n_spots as usize);
+    }
     deck.seeded = 1;
     b.open_order = spots;
     b.seed_source = source;
@@ -282,18 +301,33 @@ pub fn handle_reveal(ctx: Context<Reveal>) -> Result<()> {
     require!(d.len() >= DECK_LEN, BreakError::BadAccount);
     let deck: &Deck = bytemuck::from_bytes(&d[..DECK_LEN]);
     require!(deck.magic == DECK_MAGIC && deck.break_id == id && deck.seeded == 1, BreakError::NotShuffled);
+    if b.teams() && (b.teams_out as usize) < b.n_spots as usize {
+        // randomizer first: one spot's team per tick, in the seeded order
+        let s = b.open_order[b.teams_out as usize] as usize;
+        b.spot_team[s] = deck.spot_elems[s];
+        b.ask[s] = 0;
+        b.bid[s] = 0;
+        b.bidder[s] = Pubkey::default();
+        b.reserved[s] = Pubkey::default();
+        b.teams_out += 1;
+        let gap = if b.teams_out as usize == b.n_spots as usize { b.reveal_ms as i64 * 2 } else { b.reveal_ms as i64 };
+        b.next_reveal_ms = now + gap;
+        return Ok(());
+    }
     let pos = b.position_at(k);
     b.revealed[pos] = deck.order[pos] + 1;
     // a pack starting to open takes its spot off the market
-    let spot = b.spot_of(pos);
-    b.ask[spot] = 0;
-    b.bid[spot] = 0;
-    b.bidder[spot] = Pubkey::default();
-    b.reserved[spot] = Pubkey::default();
+    if !b.teams() {
+        let spot = b.spot_of(pos);
+        b.ask[spot] = 0;
+        b.bid[spot] = 0;
+        b.bidder[spot] = Pubkey::default();
+        b.reserved[spot] = Pubkey::default();
+    }
     b.cursor += 1;
     let per = b.per_spot as usize;
-    // a short beat between packs, longer before the last one
-    let extra = if (k + 1) % per == 0 { b.reveal_ms as i64 / 2 } else { 0 };
+    // a short beat between packs
+    let extra = if !b.teams() && (k + 1) % per == 0 { b.reveal_ms as i64 / 2 } else { 0 };
     b.next_reveal_ms = now + b.reveal_ms as i64 + extra;
     if b.cursor as usize == total {
         b.status = ST_ENDED;
@@ -433,5 +467,24 @@ mod shuffle_tests {
         }
         let (order, spots) = shuffle(seed, 30, 10);
         println!("VECTOR{{\"order\":{:?},\"spots\":{:?}}}", &order[..30], &spots[..10]);
+    }
+}
+
+#[cfg(test)]
+mod team_tests {
+    use super::*;
+
+    #[test]
+    fn every_element_goes_to_exactly_one_spot() {
+        for n in 1..=8usize {
+            let t = deal_teams([n as u8; 32], n);
+            let mut all = 0u8;
+            for s in 0..n {
+                assert!(t[s] != 0, "spot {s} got no element with {n} spots");
+                assert_eq!(all & t[s], 0);
+                all |= t[s];
+            }
+            assert_eq!(all, 0xff);
+        }
     }
 }

@@ -97,6 +97,8 @@ pub struct Break {
     /// Total appraised value of the box.
     pub box_value: u64,
     pub crank_task: u64,
+    /// Auction mode: bidding closes at this unix time (set when the sale opens).
+    pub auction_end: i64,
 
     pub host: Pubkey,
     pub mint: Pubkey,
@@ -124,6 +126,12 @@ pub struct Break {
     pub last_price: [u64; MAX_SPOTS],
     /// Order in which spots open (from the VRF output; public once the shuffle lands).
     pub open_order: [u8; MAX_SPOTS],
+    /// Team mode: element bitmask each spot owns (0 = not revealed yet).
+    pub spot_team: [u8; MAX_SPOTS],
+    /// Auction mode: how many sealed bids each spot has (the amounts stay sealed).
+    pub bid_count: [u8; MAX_SPOTS],
+    /// Element of each card (Card.art % 8): decides its owner in team mode.
+    pub card_elem: [u8; MAX_CARDS],
 
     pub trades: [Trade; TRADE_LOG],
 
@@ -145,10 +153,27 @@ pub struct Break {
     pub seed_source: u8,
     /// The settling commit has been sent (the crank tries every interval; only the first counts).
     pub settle_sent: u8,
+    /// 0 = packs (each spot owns a sealed pack), 1 = random teams (each spot draws elements).
+    pub mode: u8,
+    /// Team mode: spots whose team has been revealed.
+    pub teams_out: u8,
+    /// Sale: 0 = fixed price, 1 = sealed-bid auction; 2 = auction closed.
+    pub sale: u8,
+    pub _pad1: u8,
+    pub auction_secs: u32,
     pub _pad: [u8; 4],
 }
 
 impl Break {
+    pub fn teams(&self) -> bool {
+        self.mode == MODE_TEAMS
+    }
+
+    /// Team mode: the spot that owns cards of element `e`.
+    pub fn spot_of_elem(&self, e: u8) -> Option<usize> {
+        (0..self.n_spots as usize).find(|&s| self.spot_team[s] & (1 << e) != 0)
+    }
+
     pub fn cards_total(&self) -> usize {
         self.n_spots as usize * self.per_spot as usize
     }
@@ -161,6 +186,9 @@ impl Break {
     /// The position revealed at step `k` of the opening: spots open in `open_order`, cards
     /// inside a spot in order.
     pub fn position_at(&self, k: usize) -> usize {
+        if self.teams() {
+            return k;
+        }
         let per = self.per_spot as usize;
         self.open_order[k / per] as usize * per + k % per
     }
@@ -169,6 +197,7 @@ impl Break {
     pub fn spot_locked(&self, spot: usize) -> bool {
         match self.status {
             ST_SELLING | ST_SHUFFLING => false,
+            ST_LIVE if self.teams() => self.spot_team[spot] != 0,
             ST_LIVE => {
                 let per = self.per_spot as usize;
                 // pack i of the opening has started once its first card is out
@@ -186,6 +215,12 @@ impl Break {
     }
 }
 
+pub const MODE_PACKS: u8 = 0;
+pub const MODE_TEAMS: u8 = 1;
+pub const SALE_FIXED: u8 = 0;
+pub const SALE_AUCTION: u8 = 1;
+pub const SALE_CLOSED: u8 = 2;
+
 pub const DECK_MAGIC: u32 = 0x4b434544; // "DECK"
 
 /// Sealed inside the TEE until the last card is out.
@@ -197,10 +232,61 @@ pub struct Deck {
     pub break_id: u64,
     /// Raw VRF output.
     pub randomness: [u8; 32],
-    /// Position -> card index.
+    /// Position -> card index (team mode: reveal order).
     pub order: [u8; MAX_CARDS],
+    /// Team mode: element bitmask dealt to each spot.
+    pub spot_elems: [u8; MAX_SPOTS],
 }
 pub const DECK_LEN: usize = core::mem::size_of::<Deck>();
+
+pub const BIDS_MAGIC: u32 = 0x53444942; // "BIDS"
+pub const MAX_BIDS: usize = 8;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct SealedBid {
+    pub amount: u64,
+    pub bidder: Pubkey,
+}
+
+/// Auction mode: every bid, sealed in the TEE (private permission, no members) until the
+/// auction closes; then flipped public so anyone can check the winners and prices.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct Bids {
+    pub magic: u32,
+    pub closed: u32,
+    pub break_id: u64,
+    pub bids: [[SealedBid; MAX_BIDS]; MAX_SPOTS],
+}
+pub const BIDS_LEN: usize = core::mem::size_of::<Bids>();
+
+pub const CHAT_MAGIC: u32 = 0x54414843; // "CHAT"
+pub const CHAT_LOG: usize = 48;
+pub const CHAT_TEXT: usize = 86;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct ChatMsg {
+    pub ts: i64,
+    pub author: Pubkey,
+    /// 0 = text, 1 = reaction (text[0] = emoji index)
+    pub kind: u8,
+    pub len: u8,
+    pub text: [u8; CHAT_TEXT],
+}
+
+/// The room's chat + reactions: an ephemeral account in the rollup, public, free to write.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct Chat {
+    pub magic: u32,
+    pub head: u32,
+    pub break_id: u64,
+    pub count: u64,
+    pub msgs: [ChatMsg; CHAT_LOG],
+}
+pub const CHAT_LEN: usize = core::mem::size_of::<Chat>();
 
 /// Base layer. Written by the post-commit Magic Action once the break has ended: which wallet
 /// receives each card. `claim` reads only this, so cards can be delivered while the Break stays
@@ -285,10 +371,13 @@ mod layout_tests {
                 s
             }};
         }
-        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent);
+        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent, mode, teams_out, sale, auction_secs, auction_end, spot_team, bid_count, card_elem);
         let trade = offs!(Trade; price, ts, buyer, seller, spot, kind);
         let receipt = offs!(Receipt; break_id, host_paid, settled_at, host, cards, recipient, claimed, n_cards, settled, bump);
-        let deck = offs!(Deck; magic, seeded, break_id, randomness, order);
-        println!("LAYOUT{{\"Break\":{},\"Trade\":{},\"Receipt\":{},\"Deck\":{}}}", brk, trade, receipt, deck);
+        let deck = offs!(Deck; magic, seeded, break_id, randomness, order, spot_elems);
+        let bids = offs!(Bids; magic, closed, break_id, bids);
+        let chat = offs!(Chat; magic, head, break_id, count, msgs);
+        let msg = offs!(ChatMsg; ts, author, kind, len, text);
+        println!("LAYOUT{{\"Break\":{},\"Trade\":{},\"Receipt\":{},\"Deck\":{},\"Bids\":{},\"Chat\":{},\"ChatMsg\":{}}}", brk, trade, receipt, deck, bids, chat, msg);
     }
 }

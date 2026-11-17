@@ -72,4 +72,14 @@ pub enum BreakError {
     VrfRequestFailed,
     #[msg("Scheduling the reveal crank failed")]
     CrankFailed,
+    #[msg("Bidding is closed")]
+    AuctionClosed,
+    #[msg("The auction is still running")]
+    AuctionRunning,
+    #[msg("This break sells by auction: place a bid")]
+    AuctionOnly,
+    #[msg("Message too long")]
+    TooLong,
+    #[msg("The buyback pool is empty")]
+    PoolEmpty,
 }

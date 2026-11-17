@@ -76,8 +76,9 @@ pub mod breakroom {
 
     // ---- Solana: the host builds a break
 
-    pub fn create_break(ctx: Context<CreateBreak>, break_id: u64, n_spots: u8, per_spot: u8, spot_price: u64, reveal_ms: u32, title: [u8; 48]) -> Result<()> {
-        instructions::host::handle_create_break(ctx, break_id, n_spots, per_spot, spot_price, reveal_ms, title)
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_break(ctx: Context<CreateBreak>, break_id: u64, n_spots: u8, per_spot: u8, spot_price: u64, reveal_ms: u32, title: [u8; 48], mode: u8, sale: u8, auction_secs: u32) -> Result<()> {
+        instructions::host::handle_create_break(ctx, break_id, n_spots, per_spot, spot_price, reveal_ms, title, mode, sale, auction_secs)
     }
 
     pub fn deposit_card(ctx: Context<DepositCard>, slot: u8) -> Result<()> {
@@ -100,6 +101,18 @@ pub mod breakroom {
 
     pub fn buy_spot(ctx: Context<BuySpot>, spot: u8, max_price: u64) -> Result<()> {
         instructions::sale::handle_buy_spot(ctx, spot, max_price)
+    }
+
+    pub fn place_bid(ctx: Context<PlaceBid>, spot: u8, amount: u64) -> Result<()> {
+        instructions::sale::handle_place_bid(ctx, spot, amount)
+    }
+
+    pub fn close_auction(ctx: Context<CloseAuction>) -> Result<()> {
+        instructions::sale::handle_close_auction(ctx)
+    }
+
+    pub fn send_chat(ctx: Context<SendChat>, kind: u8, text: Vec<u8>) -> Result<()> {
+        instructions::sale::handle_send_chat(ctx, kind, text)
     }
 
     // ---- TEE: the live break
@@ -136,6 +149,14 @@ pub mod breakroom {
 
     pub fn claim(ctx: Context<Claim>, index: u8) -> Result<()> {
         instructions::settle::handle_claim(ctx, index)
+    }
+
+    pub fn sell_back(ctx: Context<SellBack>) -> Result<()> {
+        instructions::settle::handle_sell_back(ctx)
+    }
+
+    pub fn fund_pool(ctx: Context<FundPool>, amount: u64) -> Result<()> {
+        instructions::settle::handle_fund_pool(ctx, amount)
     }
 
     // ---- TEE: the spot market

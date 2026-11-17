@@ -13,7 +13,7 @@ use crate::espl::*;
 use crate::state::*;
 
 /// Lamports a break carries into the rollup to pay rent for its sealed Deck and permissions.
-pub const BREAK_PREFUND: u64 = 5_000_000;
+pub const BREAK_PREFUND: u64 = 10_000_000;
 
 pub fn handle_create_break(
     ctx: Context<CreateBreak>,
@@ -23,7 +23,14 @@ pub fn handle_create_break(
     spot_price: u64,
     reveal_ms: u32,
     title: [u8; 48],
+    mode: u8,
+    sale: u8,
+    auction_secs: u32,
 ) -> Result<()> {
+    require!(mode <= MODE_TEAMS && sale <= SALE_AUCTION, BreakError::BadShape);
+    // team mode deals the 8 elements across the spots
+    require!(mode == MODE_PACKS || n_spots <= 8, BreakError::BadShape);
+    require!(sale == SALE_FIXED || (MIN_AUCTION_SECS..=MAX_AUCTION_SECS).contains(&auction_secs), BreakError::BadShape);
     require!((2..=MAX_SPOTS as u8).contains(&n_spots), BreakError::BadShape);
     require!((1..=MAX_CARDS_PER_SPOT as u8).contains(&per_spot), BreakError::BadShape);
     require!(n_spots as usize * per_spot as usize <= MAX_CARDS, BreakError::BadShape);
@@ -51,6 +58,9 @@ pub fn handle_create_break(
         b.status = ST_DRAFT;
         b.bump = ctx.bumps.brk;
         b.vault_bump = ctx.bumps.vault;
+        b.mode = mode;
+        b.sale = sale;
+        b.auction_secs = auction_secs;
     }
     {
         let mut r = ctx.accounts.receipt.load_init()?;
@@ -104,6 +114,7 @@ pub fn handle_deposit_card(ctx: Context<DepositCard>, slot: u8) -> Result<()> {
         b.cards[s] = mint.key();
         b.card_value[s] = card.value;
         b.card_tier[s] = card.tier;
+        b.card_elem[s] = (card.art % 8) as u8;
         b.box_value = b.box_value.checked_add(card.value).ok_or(BreakError::Overflow)?;
         b.deposited += 1;
     }

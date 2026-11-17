@@ -21,6 +21,9 @@ pub const BREAK_SEED: &[u8] = b"break";
 pub const RECEIPT_SEED: &[u8] = b"receipt";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const DECK_SEED: &[u8] = b"deck";
+pub const BIDS_SEED: &[u8] = b"bids";
+pub const CHAT_SEED: &[u8] = b"chat";
+pub const POOL_SEED: &[u8] = b"pool";
 pub const CARD_SEED: &[u8] = b"card";
 pub const STATS_SEED: &[u8] = b"stats";
 pub const FAUCET_SEED: &[u8] = b"faucet";
@@ -42,6 +45,12 @@ pub const BPS: u64 = 10_000;
 pub const MIN_RAISE_BPS: u64 = 100;
 /// How long an accepted offer holds the spot for the bidder's session to fill it.
 pub const RESERVE_SECS: i64 = 20;
+/// Auction winner has this long to complete payment before the spot reopens at the box price.
+pub const AUCTION_CLAIM_SECS: i64 = 90;
+pub const MIN_AUCTION_SECS: u32 = 30;
+pub const MAX_AUCTION_SECS: u32 = 86_400;
+/// Instant buyback pays this share of the appraised value (85%).
+pub const BUYBACK_BPS: u64 = 8_500;
 /// Smallest spot price: 1 USDC.
 pub const MIN_SPOT_PRICE: u64 = 1_000_000;
 
