@@ -13,6 +13,14 @@ BREAKROOM puts the whole break on Solana and MagicBlock:
 - **It settles itself.** After the last card the same crank unseals the Deck and commits with a **Magic Action** that writes every card's recipient to Solana. Anyone can then deliver the cards.
 - **Anyone can verify it.** The verify page re-runs the shuffle in your browser from the public seed and checks every position, the opening order and the Solana receipt.
 
+**Formats and features**
+
+- **Two break formats.** *Packs*: every spot owns a sealed pack. *Random teams*: VRF deals the 8 Genesis elements across the spots, revealed live like a breaker's randomizer, and every card of your element is yours.
+- **Sealed-bid spot auctions.** Bids go into a sealed account in the TEE — nobody, host included, sees an amount until the close, so there's nothing to shill against. The highest bidder wins at the second-highest price (Vickrey), and the book is unsealed for anyone to check.
+- **Room chat + reactions** live in the rollup: free and instant.
+- **Instant buyback**: sell a delivered card to the desk's pool for 85% of its appraised value in one transaction on Solana.
+- **Value chart per spot**, **replay** of any finished break, **share-a-pull** image + X post, **leaderboard** and **host reputation** — all computed from chain data, no indexer.
+
 ## MagicBlock, end to end
 
 | Piece | What it does in BREAKROOM | Code |
@@ -22,6 +30,8 @@ BREAKROOM puts the whole break on Solana and MagicBlock:
 | VRF | Seed requested at start; callback shuffles into the sealed Deck | `live.rs` `start_break`, `on_shuffle` |
 | Cranks | One scheduled task reveals every card **and** settles the break | `live.rs` `start_break` → `reveal` + `finish` |
 | Magic Actions | Post-commit `settle` on Solana writes the Receipt + stats | `live.rs` `finish`, `settle.rs` `settle` |
+| Sealed auction | `Bids` ephemeral account, private permission, unsealed by `close_auction` | `sale.rs` `place_bid`, `close_auction` |
+| Ephemeral accounts | Deck, Bids and Chat are created inside the rollup, paid by the Break PDA | `sale.rs` `open_sale` |
 | Private Payments API | Deposits/withdrawals into private USDC balances in the TEE | `app/src/chain/client.ts` `deposit` / `withdraw` |
 | Session keys | SPL `approve` inside the TEE + `Profile.agent`: one signature, then silent trades | `profile.rs`, `client.ts` `startSession` |
 
@@ -66,6 +76,7 @@ The app needs no backend. On devnet a guest wallet can airdrop SOL, mint test US
 | `scripts/deploy.sh` | build, extend program data if needed, deploy, verify deployed bytes |
 | `scripts/setup.ts` | one-time: stats, test USDC, Payments API mint on the TEE, treasury balance |
 | `scripts/e2e.ts` | full lifecycle on devnet + TEE: private deposits, paid buys, forged payment rejected, resale, accepted offer, VRF shuffle, crank reveals, unseal, in-browser re-verification, Magic Action settlement, delivery |
+| `scripts/e2e_modes.ts` | sealed auction (counts public, amounts sealed, Vickrey price, unsealed after close), random teams, chat, buyback |
 | `scripts/ui-flow.mjs` | clicks through the real UI as a new guest: onboarding → buy → list |
 | `scripts/seed.ts` | mint + list a Genesis box (`--fill` bots buy, `--start` runs it) |
 | `scripts/market.ts` | bot collectors trade a live break's spots off expected value |

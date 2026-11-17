@@ -31,6 +31,8 @@ export default function Leaders() {
       <h2 className="display" style={{ fontSize: 22, margin: "32px 0 14px" }}>Biggest pulls</h2>
       {loading ? (
         <div className="skeleton" style={{ height: 220 }} />
+      ) : top.length === 0 ? (
+        <p className="faint">No finished breaks yet — the first big pull lands here.</p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 16 }}>
           {top.map((p, i) => {
@@ -74,7 +76,7 @@ export default function Leaders() {
                     <td>{usd(c.spent, 0)}</td>
                     <td>{usd(c.pulled, 0)}</td>
                     <td>{usd(c.earned, 0)}</td>
-                    <td style={{ paddingRight: 8 }} className={c.profit >= 0 ? "up" : "down"}>{c.profit >= 0 ? "+" : ""}{usd(c.profit, 0)}</td>
+                    <td style={{ paddingRight: 8 }} className={c.profit >= 0 ? "up" : "down"}>{c.profit >= 0 ? "+" : "−"}{usd(Math.abs(c.profit), 0)}</td>
                   </tr>
                 ))}
               </tbody>
