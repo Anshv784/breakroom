@@ -115,6 +115,7 @@ export function SpotStand({
   price,
   team,
   teamColor,
+  quiet = false,
   onClick,
 }: {
   pos: THREE.Vector3;
@@ -127,6 +128,7 @@ export function SpotStand({
   price?: string;
   team?: string;
   teamColor?: string;
+  quiet?: boolean;
   onClick: () => void;
 }) {
   const edge = mine ? "#4fe3a1" : selected ? "#ffd27a" : owned ? "#b58cff" : "#7cf7e4";
@@ -163,6 +165,8 @@ export function SpotStand({
             font: "600 11px Inter Tight, sans-serif",
             color: owned ? "#f3eff6" : "#9ef5e8",
             maxWidth: 190,
+            opacity: quiet ? 0.12 : 1,
+            transition: "opacity .35s ease",
           }}
         >
           <span style={{ background: edge, color: "#0b0910", borderRadius: 5, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{index + 1}</span>

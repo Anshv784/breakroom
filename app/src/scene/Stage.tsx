@@ -220,6 +220,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
                 mine={mine}
                 selected={selected === s}
                 price={b.ask[s] > 0n ? `$${(Number(b.ask[s]) / 1e6).toFixed(0)}` : undefined}
+                quiet={focus}
                 onClick={() => onSelect(s)}
               />
             </group>
