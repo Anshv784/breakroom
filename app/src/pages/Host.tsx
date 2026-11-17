@@ -29,6 +29,8 @@ export default function Host() {
   const [shape, setShape] = useState<{ spots: number; per: number } | null>(null);
   const [price, setPrice] = useState("");
   const [speed, setSpeed] = useState(SPEEDS[1].ms);
+  const [format, setFormat] = useState<0 | 1>(0);
+  const [auction, setAuction] = useState(0); // seconds; 0 = fixed price
   const [progress, setProgress] = useState<string[] | null>(null);
   const [step, setStep] = useState(0);
   const [requesting, setRequesting] = useState(false);
@@ -40,7 +42,7 @@ export default function Host() {
 
   const chosen = useMemo(() => (cards ?? []).filter((x) => picked.has(x.mint.toBase58())), [cards, picked]);
   const boxValue = chosen.reduce((a, x) => a + x.value, 0n);
-  const shapes = shapesFor(chosen.length);
+  const shapes = shapesFor(chosen.length).filter((x) => format === 0 || x.spots <= 8);
   useEffect(() => {
     if (!shape || shape.spots * shape.per !== chosen.length) setShape(shapes.find((x) => x.per >= 2 && x.per <= 4) ?? shapes[0] ?? null);
   }, [chosen.length]);
@@ -77,7 +79,7 @@ export default function Host() {
     setProgress(steps);
     setStep(0);
     const ok = await s.run("Launch", async () => {
-      const groups = [[c.createBreakIx(id, shape.spots, shape.per, BigInt(Math.round(priceN * 1e6)), speed, title || "Untitled break")]];
+      const groups = [[c.createBreakIx(id, shape.spots, shape.per, BigInt(Math.round(priceN * 1e6)), speed, title || "Untitled break", format, auction > 0 ? 1 : 0, auction)]];
       for (let i = 0; i < mints.length; i += 4) groups.push(mints.slice(i, i + 4).map((m, k) => c.depositCardIx(id, i + k, m)));
       groups.push(c.sealBreakIxs(id));
       await c.sendBaseMany(groups, (i) => setStep(i + 1));
@@ -156,6 +158,30 @@ export default function Host() {
             <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 48))} placeholder="Genesis Night #7" />
           </label>
           <div className="field">
+            Format
+            <div className="seg">
+              <button className={format === 0 ? "on" : ""} onClick={() => setFormat(0)} title="Each spot owns a sealed pack">Packs</button>
+              <button className={format === 1 ? "on" : ""} onClick={() => setFormat(1)} title="VRF deals the 8 elements across the spots; every card of your element is yours">Random teams</button>
+            </div>
+            <span className="faint" style={{ fontSize: 12 }}>
+              {format === 0 ? "Every spot owns a sealed pack; packs open one by one." : "The randomizer deals the 8 elements across the spots, live. Every card of your element is yours (max 8 spots)."}
+            </span>
+          </div>
+          <div className="field">
+            Sale
+            <div className="seg">
+              {[
+                [0, "Fixed price"],
+                [120, "Auction · 2 min"],
+                [600, "Auction · 10 min"],
+                [3600, "Auction · 1 h"],
+              ].map(([secs, label]) => (
+                <button key={secs} className={auction === secs ? "on" : ""} onClick={() => setAuction(secs as number)}>{label}</button>
+              ))}
+            </div>
+            {auction > 0 && <span className="faint" style={{ fontSize: 12 }}>Bids are sealed inside the TEE — nobody, you included, sees an amount until the close. Winners pay the second-highest bid; your price below is the reserve.</span>}
+          </div>
+          <div className="field">
             Spots × cards per spot
             <div className="seg">
               {shapes.length === 0 && <span className="faint" style={{ fontSize: 13 }}>Pick at least 2 cards</span>}
@@ -167,7 +193,7 @@ export default function Host() {
             </div>
           </div>
           <label className="field">
-            Spot price (USD)
+            {auction > 0 ? "Reserve price (USD)" : "Spot price (USD)"}
             <input value={price} placeholder={String(suggested)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" />
             <span className="faint" style={{ fontSize: 12 }}>
               Box {usd(boxValue, 0)} ÷ {shape?.spots ?? "—"} spots = {usd(fair)} fair value per spot.

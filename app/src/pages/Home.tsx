@@ -4,6 +4,7 @@ import { BreakroomClient, keypairWallet, statsPda } from "../chain/client";
 import { Keypair } from "@solana/web3.js";
 import { useBreakList } from "../lib/useBreaks";
 import { BreakCard } from "../ui/BreakCard";
+import { hostRep } from "../lib/rep";
 import "./home.css";
 
 const HeroScene = lazy(() => import("../scene/HeroScene"));
@@ -126,7 +127,7 @@ export default function Home() {
           </div>
           <div className="break-grid">
             {live.map((b) => (
-              <BreakCard key={b.breakId.toString()} b={b} />
+              <BreakCard key={b.breakId.toString()} b={b} rep={hostRep(list, b.host)} />
             ))}
           </div>
         </section>

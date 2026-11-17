@@ -16,7 +16,7 @@ export function StatusChip({ status }: { status: number }) {
   );
 }
 
-export function BreakCard({ b }: { b: BreakState }) {
+export function BreakCard({ b, rep }: { b: BreakState; rep?: { verified: number } }) {
   const cards = useCards(b.cards);
   const name = useNames([b.host]);
   const chase = useMemo(() => {
@@ -37,7 +37,12 @@ export function BreakCard({ b }: { b: BreakState }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <StatusChip status={b.status} />
-          <span className="faint" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>by {name(b.host)}</span>
+          <span className="faint" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            by {name(b.host)}
+            {rep && rep.verified > 0 && <span className="up"> ✓{rep.verified}</span>}
+          </span>
+          {b.mode === 1 && <span className="chip" style={{ height: 20, fontSize: 11 }}>Teams</span>}
+          {b.sale === 1 && <span className="chip sale" style={{ height: 20, fontSize: 11 }}>Auction</span>}
         </div>
         <div style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>{b.title || "Untitled break"}</div>
         {chase && (

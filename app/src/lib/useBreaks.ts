@@ -28,7 +28,7 @@ export function useBreakList(pollMs = 5_000) {
         }
         const bs = await c.fetchBreaks(ids.slice(0, 60));
         // test runs (scripts/e2e.ts, probes) stay on chain but out of the lobby
-        if (alive) setList(bs.filter((b) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e)/i.test(b.title)));
+        if (alive) setList(bs.filter((b) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|\[test\])/i.test(b.title)));
       } catch (e) {
         console.warn("break list", e);
       } finally {

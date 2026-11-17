@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useBreakList } from "../lib/useBreaks";
 import { BreakCard } from "../ui/BreakCard";
+import { hostRep } from "../lib/rep";
 
 const TABS = [
   { key: "live", label: "Live & on sale", match: (s: number) => s >= 1 && s <= 3 },
@@ -52,7 +53,7 @@ export default function Lobby() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 16 }}>
           {shown.map((b) => (
-            <BreakCard key={b.breakId.toString()} b={b} />
+            <BreakCard key={b.breakId.toString()} b={b} rep={hostRep(list, b.host)} />
           ))}
         </div>
       )}

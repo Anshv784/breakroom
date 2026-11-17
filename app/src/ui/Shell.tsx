@@ -24,6 +24,9 @@ export function Nav({ route }: { route: string[] }) {
           <a href="#/host" className={at === "host" ? "on" : ""}>
             Host a break
           </a>
+          <a href="#/leaders" className={at === "leaders" ? "on" : ""}>
+            Leaderboard
+          </a>
           <a href="#/vault" className={at === "vault" ? "on" : ""}>
             Vault
           </a>

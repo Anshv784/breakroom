@@ -6,7 +6,8 @@ import { readerClient, useBreakList } from "../lib/useBreaks";
 import type { CardInfo, ReceiptState } from "../chain/layout";
 import { ST } from "../chain/layout";
 import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
-import { spotOdds } from "../lib/odds";
+import { oddsFor } from "../lib/breakmath";
+import { shareCard } from "../lib/share";
 
 const SlabViewer = lazy(() => import("../scene/SlabViewer"));
 
@@ -50,7 +51,7 @@ export default function Vault() {
     return list
       .filter((b) => b.status >= ST.SELLING && b.status <= ST.LIVE)
       .flatMap((b) => {
-        const odds = spotOdds(b);
+        const odds = oddsFor(b);
         return b.spotOwner.map((o, i) => (o?.equals(c.me) ? { b, i, ev: odds[i].ev, chase: odds[i].chaseOdds } : null)).filter(Boolean) as { b: typeof list[number]; i: number; ev: number; chase: number }[];
       });
   }, [list, c?.me.toBase58()]);
@@ -181,6 +182,28 @@ export default function Vault() {
               <div className={`tier-${open.tier} mono`}>{TIER_NAMES[open.tier]} · grade {(open.grade / 10).toFixed(1)}</div>
               <div className="mono" style={{ fontSize: 30, fontWeight: 600 }}>{usd(open.value)}</div>
               <div className="faint" style={{ fontSize: 13 }}>Appraised value from the BREAKROOM desk. Drag to turn the slab.</div>
+              <button
+                className="btn primary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const ok = await s.run("Buyback", async () => {
+                    await c.sendBase([c.sellBackIx(open.mint)]);
+                    return true;
+                  });
+                  setBusy(false);
+                  if (ok) {
+                    s.toast("ok", `Sold back for ${usd((open.value * 8500n) / 10000n)} — paid to your wallet`);
+                    setOpen(null);
+                    c.walletCards().then(setCards);
+                    s.refresh();
+                  }
+                }}
+              >
+                Instant buyback · {usd((open.value * 8500n) / 10000n)}
+              </button>
+              <span className="faint" style={{ fontSize: 12 }}>85% of appraised value, paid in USDC on Solana in one transaction.</span>
+              <button className="btn ghost sm" style={{ alignSelf: "start" }} onClick={() => shareCard(open, "my BREAKROOM vault", 0n)}>Share this card</button>
               <a className="btn ghost sm" style={{ alignSelf: "start", marginTop: "auto" }} href={`https://explorer.solana.com/address/${open.mint.toBase58()}?cluster=devnet`} target="_blank" rel="noreferrer">
                 View NFT on explorer ↗
               </a>

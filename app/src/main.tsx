@@ -18,6 +18,7 @@ const Host = lazy(() => import("./pages/Host"));
 const Vault = lazy(() => import("./pages/Vault"));
 const Verify = lazy(() => import("./pages/Verify"));
 const How = lazy(() => import("./pages/How"));
+const Leaders = lazy(() => import("./pages/Leaders"));
 
 function App() {
   const route = useRoute();
@@ -58,6 +59,7 @@ function App() {
           {page === "vault" && <Vault />}
           {page === "verify" && route[1] && <Verify id={BigInt(route[1])} />}
           {page === "how" && <How />}
+          {page === "leaders" && <Leaders />}
         </Suspense>
       </main>
       <ConnectModal />
