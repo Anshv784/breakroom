@@ -88,6 +88,17 @@ export interface BreakState {
   /** 1 = VRF, 2 = TEE fallback, 0 = not yet */
   seedSource: number;
   settleSent: boolean;
+  /** 0 = packs, 1 = random teams */
+  mode: number;
+  teamsOut: number;
+  /** 0 = fixed price, 1 = sealed-bid auction running, 2 = auction closed */
+  sale: number;
+  auctionSecs: number;
+  auctionEnd: number;
+  /** team mode: element bitmask per spot (0 = not revealed) */
+  spotTeam: number[];
+  bidCount: number[];
+  cardElem: number[];
 }
 
 const orNull = (k: PublicKey) => (k.toBase58() === ZERO ? null : k);
@@ -151,6 +162,14 @@ export function decodeBreak(data: Uint8Array): BreakState {
     revealMs: r.u32(o.reveal_ms),
     seedSource: r.u8(o.seed_source),
     settleSent: r.u8(o.settle_sent) === 1,
+    mode: r.u8(o.mode),
+    teamsOut: r.u8(o.teams_out),
+    sale: r.u8(o.sale),
+    auctionSecs: r.u32(o.auction_secs),
+    auctionEnd: r.i64(o.auction_end),
+    spotTeam: Array.from(r.bytes(o.spot_team, nSpots)),
+    bidCount: Array.from(r.bytes(o.bid_count, nSpots)),
+    cardElem: Array.from(r.bytes(o.card_elem, nCards)),
   };
 }
 
@@ -188,13 +207,56 @@ export interface DeckState {
   breakId: bigint;
   randomness: Uint8Array;
   order: number[];
+  spotElems: number[];
 }
 
 /** The Deck is an ephemeral account: no discriminator. Readable only once the break has ended. */
 export function decodeDeck(data: Uint8Array, nCards: number): DeckState {
   const r = new R(data, 0);
   const o = L.Deck;
-  return { seeded: r.u32(o.seeded) !== 0, breakId: r.u64(o.break_id), randomness: r.bytes(o.randomness, 32), order: Array.from(r.bytes(o.order, nCards)) };
+  return { seeded: r.u32(o.seeded) !== 0, breakId: r.u64(o.break_id), randomness: r.bytes(o.randomness, 32), order: Array.from(r.bytes(o.order, nCards)), spotElems: data.length >= L.Deck.__size ? Array.from(r.bytes(o.spot_elems, 16)) : [] };
+}
+
+/** Sealed bids: readable only after the auction closes (then public). */
+export interface BidsState {
+  closed: boolean;
+  bids: { amount: bigint; bidder: PublicKey }[][];
+}
+export function decodeBids(data: Uint8Array, nSpots: number): BidsState {
+  const r = new R(data, 0);
+  const o = L.Bids;
+  const bids = Array.from({ length: nSpots }, (_, s) =>
+    Array.from({ length: 8 }, (_, k) => {
+      const at = o.bids + (s * 8 + k) * 40;
+      return { amount: r.u64(at), bidder: r.key(at + 8) };
+    }).filter((x) => x.amount > 0n),
+  );
+  return { closed: r.u32(o.closed) !== 0, bids };
+}
+
+export interface ChatMsg {
+  ts: number;
+  author: PublicKey;
+  kind: number;
+  text: string;
+  seq: number;
+}
+/** Room chat, oldest first. */
+export function decodeChat(data: Uint8Array): ChatMsg[] {
+  const r = new R(data, 0);
+  const o = L.Chat;
+  const M = L.ChatMsg;
+  const head = r.u32(o.head);
+  const count = Number(r.u64(o.count));
+  const n = Math.min(count, 48);
+  const out: ChatMsg[] = [];
+  for (let k = n; k >= 1; k--) {
+    const i = (head - k + 48) % 48;
+    const at = o.msgs + i * M.__size;
+    const len = r.u8(at + M.len);
+    out.push({ ts: r.i64(at + M.ts), author: r.key(at + M.author), kind: r.u8(at + M.kind), text: new TextDecoder().decode(r.bytes(at + M.text, len)), seq: count - k });
+  }
+  return out;
 }
 
 /** Card appraisal record (Borsh, Anchor account). */

@@ -35,8 +35,8 @@ export function Nav({ route }: { route: string[] }) {
           {!IS_MAINNET && <span className="chip faint">devnet</span>}
           {s.client ? (
             <>
-              <button className="btn sm ghost" onClick={() => s.setOnboard(true)} title="Private balance inside the TEE">
-                <span className="mono num">{usd(s.privateUsdc)}</span>
+              <button className="btn sm ghost" onClick={() => (s.locked ? s.unlock() : s.setOnboard(true))} title={s.locked ? "Sign once to read your private balance" : "Private balance inside the TEE"}>
+                <span className="mono num">{s.locked ? "🔒 Unlock" : usd(s.privateUsdc)}</span>
                 {!r.ready && <span className="chip sale" style={{ height: 20 }}>Get ready</span>}
               </button>
               <button className="btn sm" onClick={() => s.disconnect()} title="Disconnect">

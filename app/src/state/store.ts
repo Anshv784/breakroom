@@ -23,6 +23,9 @@ interface State {
   allowance: bigint;
   profile: ProfileInfo | null;
   hasPrivate: boolean;
+  /** has a private balance but this browser hasn't unlocked reading it yet */
+  locked: boolean;
+  unlock: () => Promise<void>;
   loading: boolean;
   onboardOpen: boolean;
   connectOpen: boolean;
@@ -50,6 +53,7 @@ export const useApp = create<State>((set, get) => ({
   allowance: 0n,
   profile: null,
   hasPrivate: false,
+  locked: false,
   loading: false,
   onboardOpen: false,
   connectOpen: false,
@@ -67,6 +71,13 @@ export const useApp = create<State>((set, get) => ({
     } catch {
       /* private mode */
     }
+    await get().refresh();
+  },
+
+  async unlock() {
+    const c = get().client;
+    if (!c) return;
+    await get().run("Unlock", () => c.tee());
     await get().refresh();
   },
 
@@ -91,10 +102,12 @@ export const useApp = create<State>((set, get) => ({
       const exists = await c.base.getAccountInfo(profilePda(c.me));
       const profile = exists ? await c.fetchProfile().catch(() => null) : null;
       set({ profile });
-      if (hasPrivate) {
+      // never pop the wallet from a background refresh: only read the private balance once
+      // the user has unlocked it (one signature, remembered until the token expires)
+      if (hasPrivate && c.teeUnlocked()) {
         const [privateUsdc, allowance] = await Promise.all([c.privateUsdc(), c.sessionAllowance()]);
-        set({ privateUsdc, allowance });
-      }
+        set({ privateUsdc, allowance, locked: false });
+      } else set({ locked: hasPrivate });
     } catch (e) {
       console.warn("refresh", e);
     } finally {
@@ -126,13 +139,14 @@ export const useApp = create<State>((set, get) => ({
 }));
 
 /** Ready = can buy and trade right now without any wallet popup. */
-export function readiness(s: Pick<State, "client" | "sol" | "baseUsdc" | "privateUsdc" | "profile" | "allowance" | "hasPrivate">) {
-  const sessionOk = !!s.client && !!s.profile && s.profile.agent.equals(s.client.session.publicKey) && s.allowance > 0n;
+export function readiness(s: Pick<State, "client" | "sol" | "baseUsdc" | "privateUsdc" | "profile" | "allowance" | "hasPrivate" | "locked">) {
+  // a locked balance can't be read, but an agent already bound to this browser's session key works
+  const sessionOk = !!s.client && !!s.profile && s.profile.agent.equals(s.client.session.publicKey) && (s.allowance > 0n || s.locked);
   return {
     wallet: !!s.client,
     sol: s.sol >= 0.01,
     usdc: s.baseUsdc > 0n || s.privateUsdc > 0n,
-    private: s.hasPrivate && s.privateUsdc > 0n,
+    private: s.hasPrivate && (s.privateUsdc > 0n || s.locked),
     profile: !!s.profile,
     session: sessionOk,
     ready: !!s.client && !!s.profile && s.hasPrivate && sessionOk,

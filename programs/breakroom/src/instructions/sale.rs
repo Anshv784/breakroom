@@ -73,12 +73,13 @@ pub fn handle_open_sale(ctx: Context<OpenSale>) -> Result<()> {
         c.magic = CHAT_MAGIC;
         c.break_id = id;
     })?;
+    // always created (the instruction lists it writable); only auctions write to it
+    ephemeral(&brk_ai, brk_seeds, &a.bids, &[BIDS_SEED, &idb, &[ctx.bumps.bids]], &a.bids_permission, BIDS_LEN, true, &vault, &magic, &pp, |d| {
+        let bb: &mut Bids = bytemuck::from_bytes_mut(&mut d[..BIDS_LEN]);
+        bb.magic = BIDS_MAGIC;
+        bb.break_id = id;
+    })?;
     if sale == SALE_AUCTION {
-        ephemeral(&brk_ai, brk_seeds, &a.bids, &[BIDS_SEED, &idb, &[ctx.bumps.bids]], &a.bids_permission, BIDS_LEN, true, &vault, &magic, &pp, |d| {
-            let bb: &mut Bids = bytemuck::from_bytes_mut(&mut d[..BIDS_LEN]);
-            bb.magic = BIDS_MAGIC;
-            bb.break_id = id;
-        })?;
         let mut b = a.brk.load_mut()?;
         if b.auction_end == 0 {
             b.auction_end = Clock::get()?.unix_timestamp + secs as i64;

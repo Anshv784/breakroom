@@ -18,6 +18,8 @@ const priceArg = arg("price");
 const fill = Number(arg("fill", "0"));
 const revealMs = Number(arg("reveal", "2600"));
 const start = process.argv.includes("--start");
+const mode = arg("mode", "packs") === "teams" ? 1 : 0;
+const auctionSecs = Number(arg("auction", "0"));
 
 const A = admin();
 const H = clientFor(testKey("host"));
@@ -37,14 +39,26 @@ const boxUsd = specs.reduce((a, x) => a + x.value, 0);
 const price = BigInt(Math.round((priceArg ? Number(priceArg) : Math.max(1, Math.round((boxUsd / spots) * 0.9))) * 1e6));
 console.log(`box $${boxUsd}, spot price $${Number(price) / 1e6}`);
 const id = BigInt(Date.now());
-await H.sendBase([H.createBreakIx(id, spots, per, price, revealMs, title)]);
+await H.sendBase([H.createBreakIx(id, spots, per, price, revealMs, title, mode, auctionSecs > 0 ? 1 : 0, auctionSecs)]);
 for (let i = 0; i < order.length; i += 4) await H.sendBase(order.slice(i, i + 4).map((m, k) => H.depositCardIx(id, i + k, m)));
 await H.sendBase(H.sealBreakIxs(id));
 await A.waitInTee(breakPda(id));
 await A.sendSession([A.openSaleIx(id, A.session.publicKey)]);
 console.log(`break ${id} on sale: http://localhost:5181/#/break/${id}`);
 
-if (fill > 0) {
+if (fill > 0 && auctionSecs > 0) {
+  // auction: bots place sealed bids around fair value
+  for (let k = 0; k < fill; k++) {
+    const bot = await readyBot(BOT_NAMES[k % BOT_NAMES.length]);
+    for (let s = 0; s < spots; s++) {
+      if (Math.random() < 0.6) {
+        const amt = BigInt(Math.round(Number(price) * (0.95 + Math.random() * 0.5)));
+        await bot.sendSession([bot.placeBidIx(id, s, amt)]).catch((e) => console.log("  bid:", e.message.slice(0, 60)));
+      }
+    }
+    console.log(`  ${BOT_NAMES[k % BOT_NAMES.length]} placed sealed bids`);
+  }
+} else if (fill > 0) {
   for (let k = 0; k < Math.min(fill, spots); k++) {
     const bot = await readyBot(BOT_NAMES[k % BOT_NAMES.length]);
     const b = (await A.fetchBreak(id))!;

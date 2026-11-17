@@ -5,7 +5,7 @@
 //    in front of the spot that won it. Big pulls get a light burst.
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Html, Lightformer, Sparkles } from "@react-three/drei";
+import { Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { BreakState, CardInfo } from "../chain/layout";
@@ -14,6 +14,7 @@ import { Card3D, CH } from "./Card3D";
 import { Pack3D } from "./Pack3D";
 import { faceOf, TIER_COLORS, type CardFace } from "../lib/art";
 import { sfx } from "../lib/sfx";
+import { LightCone, SpotStand, Studio, TableTop, Vault } from "./Set";
 
 export interface StageProps {
   b: BreakState;
@@ -32,7 +33,7 @@ function spotHome(s: number, n: number) {
   const span = Math.min(2.4, 0.9 + n * 0.12);
   const a = n === 1 ? 0 : -span / 2 + (span * s) / (n - 1);
   const r = 2.35;
-  return { pos: new THREE.Vector3(Math.sin(a) * r * (n > 5 ? 0.92 : 1.1), 0.5, -Math.cos(a) * r + 0.7), yaw: -a * 0.8 };
+  return { pos: new THREE.Vector3(Math.sin(a) * r * (n > 5 ? 0.92 : 1.1), 0.42, -Math.cos(a) * r + 0.7), yaw: -a * 0.8 };
 }
 
 /** Where card k of a spot stands once it's out: a fan in the spot's place, facing the room. */
@@ -108,79 +109,6 @@ function Burst({ color }: { color: string }) {
   );
 }
 
-/** The sealed shuffle, drawn as a crystal that reflects the break's stage. */
-function DeckCore({ status, seeded, quiet }: { status: number; seeded: boolean; quiet: boolean }) {
-  const m = useRef<THREE.Mesh>(null);
-  const ring = useRef<THREE.Mesh>(null);
-  useFrame((_, dt) => {
-    const speed = status === ST.SHUFFLING ? 6 : status === ST.LIVE ? 0.9 : 0.35;
-    if (m.current) {
-      m.current.rotation.y += dt * speed;
-      m.current.rotation.x += dt * speed * 0.4;
-    }
-    if (ring.current) ring.current.rotation.z -= dt * speed * 0.6;
-  });
-  const color = status >= ST.ENDED ? "#4fe3a1" : status === ST.SHUFFLING ? "#ffd27a" : "#b58cff";
-  const label = status >= ST.ENDED ? "VERIFIED" : status === ST.SHUFFLING ? "VRF SHUFFLE" : status === ST.LIVE ? "SEALED IN TEE" : "BOX LOCKED";
-  return (
-    <group position={[0, 0.42, 0.55]} scale={0.6}>
-      <mesh ref={m}>
-        <octahedronGeometry args={[0.32, 0]} />
-        <meshPhysicalMaterial color={color} emissive={color} emissiveIntensity={0.9} transmission={0.6} roughness={0.15} thickness={0.5} transparent opacity={0.9} />
-      </mesh>
-      <mesh ref={ring} rotation={[Math.PI / 2, 0, 0]} position={[0, -0.42, 0]}>
-        <torusGeometry args={[0.55, 0.012, 8, 96]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      <pointLight color={color} intensity={1.6} distance={1.6} position={[0, 0.2, 0.6]} />
-      <Html center position={[0, -0.78, 0]} distanceFactor={7} style={{ pointerEvents: "none" }}>
-        <div className="mono" style={{ fontSize: 11, letterSpacing: ".18em", color, whiteSpace: "nowrap", textShadow: "0 0 12px rgba(0,0,0,.9)", opacity: quiet ? 0 : 1, transition: "opacity .4s" }}>
-          {label}
-          {seeded && status === ST.LIVE ? " · VRF" : ""}
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-function Table() {
-  const felt = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = c.height = 1024;
-    const x = c.getContext("2d")!;
-    const g = x.createRadialGradient(512, 512, 40, 512, 512, 512);
-    g.addColorStop(0, "#2a1d38");
-    g.addColorStop(0.7, "#160f1f");
-    g.addColorStop(1, "#0b0810");
-    x.fillStyle = g;
-    x.fillRect(0, 0, 1024, 1024);
-    for (let i = 0; i < 9000; i++) {
-      x.fillStyle = `rgba(255,255,255,${Math.random() * 0.025})`;
-      x.fillRect(Math.random() * 1024, Math.random() * 1024, 1, 1);
-    }
-    x.strokeStyle = "rgba(181,140,255,0.18)";
-    x.lineWidth = 3;
-    x.beginPath();
-    x.arc(512, 512, 300, 0, Math.PI * 2);
-    x.stroke();
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  }, []);
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[4.2, 96]} />
-        <meshStandardMaterial map={felt} roughness={0.95} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-        <ringGeometry args={[4.15, 4.35, 128]} />
-        <meshStandardMaterial color="#2d2338" metalness={0.6} roughness={0.35} />
-      </mesh>
-    </group>
-  );
-}
-
 function CameraRig({ focus }: { focus: boolean }) {
   const { camera, pointer, size } = useThree();
   // portrait screens: step back so the whole arc of spots fits
@@ -226,20 +154,25 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   return (
     <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.9, 4.55], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
       <color attach="background" args={["#07060a"]} />
-      <fog attach="fog" args={["#07060a", 6.5, 12]} />
-      <ambientLight intensity={0.35} />
-      <spotLight position={[0, 6, 2.5]} angle={0.75} penumbra={0.9} intensity={110} color="#fff1dc" castShadow shadow-mapSize={[1024, 1024]} />
-      <pointLight position={[-4, 2, 1]} intensity={12} color="#7cf7e4" />
-      <pointLight position={[4, 2, 1]} intensity={12} color="#b58cff" />
+      <fog attach="fog" args={["#07060a", 8, 16]} />
+      <ambientLight intensity={0.5} />
+      <spotLight position={[0, 6.5, 1.5]} angle={0.62} penumbra={0.85} intensity={140} color="#fff1dc" />
+      <directionalLight position={[0, 3.5, 7]} intensity={1.4} color="#e9e2ff" />
+      <pointLight position={[-4.5, 2.2, 1.5]} intensity={18} color="#7cf7e4" />
+      <pointLight position={[4.5, 2.2, 1.5]} intensity={18} color="#b58cff" />
+      <pointLight position={[0, 1.6, -3.2]} intensity={10} color="#ffd27a" />
       <CameraRig focus={focus} />
       <Suspense fallback={null}>
         <Environment resolution={128}>
-          <Lightformer form="rect" intensity={2.5} color="#b58cff" position={[-3, 3, 2]} scale={[5, 1, 1]} />
-          <Lightformer form="rect" intensity={2.5} color="#7cf7e4" position={[3, 3, 2]} scale={[5, 1, 1]} />
-          <Lightformer form="ring" intensity={1.5} color="#ffd27a" position={[0, 4, -3]} scale={3} />
+          <Lightformer form="rect" intensity={4} color="#b58cff" position={[-3, 3, 3]} scale={[6, 1.5, 1]} />
+          <Lightformer form="rect" intensity={4} color="#7cf7e4" position={[3, 3, 3]} scale={[6, 1.5, 1]} />
+          <Lightformer form="rect" intensity={3} color="#ffffff" position={[0, 2, 6]} scale={[8, 2, 1]} />
+          <Lightformer form="ring" intensity={2} color="#ffd27a" position={[0, 4, -3]} scale={3} />
         </Environment>
-        <Table />
-        <DeckCore status={b.status} seeded={b.seedSource === 1} quiet={focus} />
+        <Studio status={b.status} />
+        <LightCone />
+        <TableTop status={b.status} />
+        <Vault status={b.status} quiet={focus} label={b.status >= ST.ENDED ? "VERIFIED" : b.status === ST.SHUFFLING ? "VRF SHUFFLING" : b.status === ST.LIVE ? (b.mode === 1 && b.teamsOut < b.nSpots ? "RANDOMIZER" : "SEALED IN TEE") : b.sale === 1 ? "SEALED BIDS" : "BOX LOCKED"} />
         {Array.from({ length: b.nSpots }, (_, s) => {
           const posStart = s * per;
           const outCount = Array.from({ length: per }, (_, k) => b.revealed[posStart + k] >= 0).filter(Boolean).length;
@@ -264,27 +197,17 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
                   onClick={() => onSelect(s)}
                 />
               )}
-              <Html position={[home.pos.x, b.nSpots > 5 ? 0.98 : 1.18, home.pos.z - 0.05]} center distanceFactor={b.nSpots > 5 ? 5 : 6} zIndexRange={[10, 0]}>
-                <button
-                  onClick={() => onSelect(s)}
-                  style={{
-                    all: "unset",
-                    cursor: "pointer",
-                    padding: "4px 9px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                    background: selected === s ? "rgba(181,140,255,.35)" : "rgba(10,8,14,.75)",
-                    border: `1px solid ${mine ? "rgba(79,227,161,.7)" : "rgba(255,255,255,.14)"}`,
-                    color: owner ? "#f3eff6" : "#7d7586",
-                    backdropFilter: "blur(6px)",
-                  }}
-                >
-                  #{s + 1} {owner ? names(owner) : "open"}
-                  {mine ? " · you" : ""}
-                </button>
-              </Html>
+              <SpotStand
+                pos={home.pos}
+                yaw={home.yaw}
+                index={s}
+                name={owner ? names(owner) : ""}
+                owned={!!owner}
+                mine={mine}
+                selected={selected === s}
+                price={b.ask[s] > 0n ? `$${(Number(b.ask[s]) / 1e6).toFixed(0)}` : undefined}
+                onClick={() => onSelect(s)}
+              />
             </group>
           );
         })}
@@ -304,7 +227,6 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
             />
           );
         })}
-        <ContactShadows position={[0, 0.003, 0]} opacity={0.55} scale={9} blur={2.4} far={2} />
         <Sparkles count={50} scale={[9, 3, 6]} position={[0, 1.6, 0]} size={1.6} speed={0.2} color="#cdb9ff" opacity={0.35} />
         <EffectComposer>
           <Bloom intensity={0.7} luminanceThreshold={0.6} luminanceSmoothing={0.25} mipmapBlur />

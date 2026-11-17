@@ -47,7 +47,7 @@ import {
   VRF_EPHEMERAL_QUEUE,
   VRF_PROGRAM,
 } from "./config";
-import { BREAK_LEN, decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
+import { BREAK_LEN, decodeBids, decodeChat, decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
 
 const ns: any = anchorNs;
 const BorshCoder = ns.BorshCoder ?? ns["default"]?.BorshCoder;
@@ -70,6 +70,9 @@ export const breakPda = (id: bigint) => pda([Buffer.from("break"), u64le(id)]);
 export const receiptPda = (id: bigint) => pda([Buffer.from("receipt"), u64le(id)]);
 export const vaultPda = (id: bigint) => pda([Buffer.from("vault"), u64le(id)]);
 export const deckPda = (id: bigint) => pda([Buffer.from("deck"), u64le(id)]);
+export const bidsPda = (id: bigint) => pda([Buffer.from("bids"), u64le(id)]);
+export const chatPda = (id: bigint) => pda([Buffer.from("chat"), u64le(id)]);
+export const poolPda = () => pda([Buffer.from("pool")]);
 export const cardPda = (mint: PublicKey) => pda([Buffer.from("card"), mint.toBuffer()]);
 export const profilePda = (owner: PublicKey) => pda([Buffer.from("profile"), owner.toBuffer()]);
 export const INSTRUCTIONS_SYSVAR = new PublicKey("Sysvar1nstructions1111111111111111111111111");
@@ -181,13 +184,57 @@ export class BreakroomClient {
   }
 
   /** TEE connection authenticated as the wallet (reads its private balance). */
-  async tee(): Promise<Connection> {
-    if (this.teeConnCache && Date.now() < this.teeExpiry - 60_000) return this.teeConnCache;
-    const auth = await getAuthToken(TEE_RPC, this.me, (m: Uint8Array) => this.wallet.signMessage(m));
-    const exp = auth.expiresAt > 1e12 ? auth.expiresAt : auth.expiresAt * 1000;
-    this.teeConnCache = new Connection(`${TEE_RPC}?token=${auth.token}`, { wsEndpoint: `${TEE_WS}?token=${auth.token}`, commitment: "confirmed" });
+  private teeLogin: Promise<Connection> | null = null;
+
+  private useToken(token: string, exp: number) {
+    this.teeConnCache = new Connection(`${TEE_RPC}?token=${token}`, { wsEndpoint: `${TEE_WS}?token=${token}`, commitment: "confirmed" });
     this.teeExpiry = exp;
     return this.teeConnCache;
+  }
+
+  private get tokenKey() {
+    return `br-tee-${this.me.toBase58()}`;
+  }
+
+  /** A TEE login is already available (in memory or saved in this browser): no signature needed. */
+  teeUnlocked(): boolean {
+    if (this.teeConnCache && Date.now() < this.teeExpiry - 60_000) return true;
+    try {
+      const raw = (globalThis as any).localStorage?.getItem(this.tokenKey);
+      if (!raw) return false;
+      const { token, exp } = JSON.parse(raw);
+      if (Date.now() < exp - 60_000) {
+        this.useToken(token, exp);
+        return true;
+      }
+    } catch {
+      /* no storage */
+    }
+    return false;
+  }
+
+  /**
+   * TEE connection authenticated as the wallet (reads its private balance). Asks the wallet to
+   * sign at most once per token lifetime: concurrent callers share one login, and the token is
+   * kept in this browser until it expires.
+   */
+  async tee(): Promise<Connection> {
+    if (this.teeUnlocked()) return this.teeConnCache!;
+    this.teeLogin ??= (async () => {
+      try {
+        const auth = await getAuthToken(TEE_RPC, this.me, (m: Uint8Array) => this.wallet.signMessage(m));
+        const exp = auth.expiresAt > 1e12 ? auth.expiresAt : auth.expiresAt * 1000;
+        try {
+          (globalThis as any).localStorage?.setItem(this.tokenKey, JSON.stringify({ token: auth.token, exp }));
+        } catch {
+          /* no storage */
+        }
+        return this.useToken(auth.token, exp);
+      } finally {
+        this.teeLogin = null;
+      }
+    })();
+    return this.teeLogin;
   }
 
   /** TEE connection authenticated as the session key: public reads + sending trades, no popups. */
@@ -486,10 +533,11 @@ export class BreakroomClient {
 
   // ---------------------------------------------------------------- base: host
 
-  createBreakIx(id: bigint, nSpots: number, perSpot: number, spotPrice: bigint, revealMs: number, title: string) {
+  /** mode 0 = packs, 1 = random teams; sale 0 = fixed price, 1 = sealed-bid auction (auctionSecs long) */
+  createBreakIx(id: bigint, nSpots: number, perSpot: number, spotPrice: bigint, revealMs: number, title: string, mode = 0, sale = 0, auctionSecs = 0) {
     return ix(
       "create_break",
-      { break_id: bn(id), n_spots: nSpots, per_spot: perSpot, spot_price: bn(spotPrice), reveal_ms: revealMs, title: titleBytes(title) },
+      { break_id: bn(id), n_spots: nSpots, per_spot: perSpot, spot_price: bn(spotPrice), reveal_ms: revealMs, title: titleBytes(title), mode, sale, auction_secs: auctionSecs },
       { host: this.me, mint: USDC_MINT, host_eata: eataPda(this.me), brk: breakPda(id), receipt: receiptPda(id), vault: vaultPda(id) },
     );
   }
@@ -584,6 +632,10 @@ export class BreakroomClient {
       brk,
       deck,
       deck_permission: permissionPdaFromAccount(deck),
+      bids: bidsPda(id),
+      bids_permission: permissionPdaFromAccount(bidsPda(id)),
+      chat: chatPda(id),
+      chat_permission: permissionPdaFromAccount(chatPda(id)),
       brk_permission: permissionPdaFromAccount(brk),
     });
   }
@@ -610,9 +662,16 @@ export class BreakroomClient {
     return [this.transferIx(payee, price - fee, authority), this.transferIx(ADMIN, fee, authority), programIx];
   }
 
+  /** The price this wallet pays for an open spot: the auction price if it won the spot. */
+  spotPriceFor(b: BreakState, spot: number) {
+    const won = b.sale === 2 && b.reserved[spot]?.equals(this.me) && b.reserveUntil[spot] * 1000 > Date.now();
+    return won ? b.ask[spot] : b.spotPrice;
+  }
+
   buySpotIxs(b: BreakState, spot: number, signer = this.session.publicKey) {
-    const programIx = ix("buy_spot", { spot, max_price: bn(b.spotPrice) }, { signer, profile: profilePda(this.me), brk: breakPda(b.breakId) });
-    return this.paid(b.host, b.spotPrice, SALE_FEE_BPS, programIx, signer);
+    const price = this.spotPriceFor(b, spot);
+    const programIx = ix("buy_spot", { spot, max_price: bn(price) }, { signer, profile: profilePda(this.me), brk: breakPda(b.breakId) });
+    return this.paid(b.host, price, SALE_FEE_BPS, programIx, signer);
   }
 
   buyListedIxs(b: BreakState, spot: number, signer = this.session.publicKey) {
@@ -627,6 +686,31 @@ export class BreakroomClient {
     return ix(name, arg, { signer, profile: profilePda(this.me), brk: breakPda(id) });
   }
   listSpotIx = (id: bigint, spot: number, ask: bigint) => this.ownerIx("list_spot", id, spot, ask);
+
+  /** Sealed bid: only the TEE sees the amount until the auction closes. */
+  placeBidIx(id: bigint, spot: number, amount: bigint, signer = this.session.publicKey) {
+    return ix("place_bid", { spot, amount: bn(amount) }, { signer, profile: profilePda(this.me), brk: breakPda(id), bids: bidsPda(id) });
+  }
+
+  closeAuctionIx(id: bigint) {
+    return ix("close_auction", {}, { brk: breakPda(id), bids: bidsPda(id), bids_permission: permissionPdaFromAccount(bidsPda(id)) });
+  }
+
+  /** kind 0 = text, 1 = reaction (text = one emoji). */
+  sendChatIx(id: bigint, text: string, kind = 0, signer = this.session.publicKey) {
+    const bytes = Buffer.from(new TextEncoder().encode(text).slice(0, 86));
+    return ix("send_chat", { kind, text: bytes }, { signer, profile: profilePda(this.me), brk: breakPda(id), chat: chatPda(id) });
+  }
+
+  async fetchBids(id: bigint, nSpots: number) {
+    const info = await (await this.teeSession()).getAccountInfo(bidsPda(id)).catch(() => null);
+    return info ? decodeBids(info.data, nSpots) : null;
+  }
+
+  async fetchChat(id: bigint) {
+    const info = await (await this.teeSession()).getAccountInfo(chatPda(id)).catch(() => null);
+    return info ? decodeChat(info.data) : [];
+  }
   makeOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("make_offer", id, spot, price);
   acceptOfferIx = (id: bigint, spot: number, price: bigint) => this.ownerIx("accept_offer", id, spot, price);
 
@@ -684,6 +768,26 @@ export class BreakroomClient {
       vault_card: ata(vaultPda(id), cardMint),
       recipient_card: ata(recipient, cardMint),
     });
+  }
+
+  // ---------------------------------------------------------------- base: instant buyback
+
+  sellBackIx(cardMint: PublicKey) {
+    return ix("sell_back", {}, {
+      user: this.me,
+      card_mint: cardMint,
+      card: cardPda(cardMint),
+      user_card: ata(this.me, cardMint),
+      pool: poolPda(),
+      pool_card: ata(poolPda(), cardMint),
+      usdc_mint: USDC_MINT,
+      pool_usdc: ata(poolPda(), USDC_MINT),
+      user_usdc: ata(this.me, USDC_MINT),
+    });
+  }
+
+  fundPoolIx(amount: bigint) {
+    return ix("fund_pool", { amount: bn(amount) }, { admin: this.me, pool: poolPda(), usdc_mint: USDC_MINT, pool_usdc: ata(poolPda(), USDC_MINT) });
   }
 
   /** Wait until an account delegated on Solana shows up in the TEE. */
