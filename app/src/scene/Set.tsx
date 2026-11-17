@@ -13,14 +13,14 @@ export function Studio({ status }: { status: number }) {
   const strips = useMemo(() => {
     const out: { a: number; c: string; h: number }[] = [];
     const cols = ["#7cf7e4", "#b58cff", "#ffd27a", "#ff5fa8"];
-    for (let i = 0; i < 22; i++) out.push({ a: -1.25 + (i / 21) * 2.5, c: cols[i % 4], h: 1.6 + ((i * 37) % 7) * 0.22 });
+    for (let i = 0; i < 14; i++) out.push({ a: -1.1 + (i / 13) * 2.2, c: cols[i % 4], h: 2.2 });
     return out;
   }, []);
   const mats = useRef<THREE.MeshBasicMaterial[]>([]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const fast = status === ST.SHUFFLING ? 6 : status === ST.LIVE ? 2 : 0.8;
-    mats.current.forEach((m, i) => m && (m.opacity = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(t * fast + i * 0.7))));
+    mats.current.forEach((m, i) => m && (m.opacity = 0.08 + 0.14 * (0.5 + 0.5 * Math.sin(t * fast + i * 0.7))));
   });
   return (
     <group>
@@ -29,8 +29,8 @@ export function Studio({ status }: { status: number }) {
         <meshStandardMaterial color="#0d0a12" side={THREE.BackSide} roughness={0.9} />
       </mesh>
       {strips.map((s, i) => (
-        <mesh key={i} position={[Math.sin(s.a) * 9.3, 0.4 + s.h / 2, -Math.cos(s.a) * 9.3]} rotation={[0, -s.a, 0]}>
-          <planeGeometry args={[0.05, s.h]} />
+        <mesh key={i} position={[Math.sin(s.a) * 9.3, 1.1 + s.h / 2, -Math.cos(s.a) * 9.3]} rotation={[0, -s.a, 0]}>
+          <planeGeometry args={[0.035, s.h]} />
           <meshBasicMaterial ref={(m) => (mats.current[i] = m!)} color={s.c} transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       ))}
@@ -75,17 +75,17 @@ export function TableTop({ status }: { status: number }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <circleGeometry args={[4.3, 128]} />
         <MeshReflectorMaterial
-          blur={[400, 120]}
+          blur={[600, 300]}
           resolution={1024}
-          mixBlur={1}
-          mixStrength={22}
+          mixBlur={1.4}
+          mixStrength={9}
           roughness={0.85}
           depthScale={1}
           minDepthThreshold={0.4}
           maxDepthThreshold={1.4}
           color="#151019"
           metalness={0.55}
-          mirror={0.55}
+          mirror={0.3}
         />
       </mesh>
       {/* inner ring markings */}
@@ -224,10 +224,10 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
       rings.current.rotation.y += dt * (shuffling ? 3 : 0.6);
       rings.current.children.forEach((r, i) => (r.rotation.x = Math.sin(t * 0.7 + i) * 0.5 + i));
     }
-    if (g.current) g.current.scale.setScalar(THREE.MathUtils.lerp(g.current.scale.x, quiet ? 0.82 : 1, 0.08));
+    if (g.current) g.current.scale.setScalar(THREE.MathUtils.lerp(g.current.scale.x, quiet ? 0.5 : 0.62, 0.08));
   });
   return (
-    <group ref={g} position={[0, 0, 0.35]}>
+    <group ref={g} position={[0, 0, 1.05]} scale={0.62}>
       {/* plinth */}
       <mesh position={[0, 0.05, 0]}>
         <cylinderGeometry args={[0.52, 0.6, 0.1, 64]} />
@@ -258,7 +258,7 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
         ))}
       </group>
       <pointLight color={color} intensity={2.2} distance={2.2} position={[0, 0.6, 0.7]} />
-      <Html center position={[0, 1.08, 0]} distanceFactor={5} style={{ pointerEvents: "none" }}>
+      <Html center position={[0, -0.12, 0.75]} distanceFactor={5} style={{ pointerEvents: "none" }}>
         <div
           style={{
             font: "600 10px JetBrains Mono, monospace",

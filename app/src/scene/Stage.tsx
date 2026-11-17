@@ -115,9 +115,9 @@ function CameraRig({ focus }: { focus: boolean }) {
   const k = Math.max(1, Math.min(2.8, 1.55 / (size.width / size.height)));
   const look = useMemo(() => new THREE.Vector3(0, 0.6, 0), []);
   useFrame(() => {
-    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.8 * k, 4.6 * k) : new THREE.Vector3(pointer.x * 0.35, 1.9 * k, 4.7 * k);
+    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.7 * k, 4.4 * k) : new THREE.Vector3(pointer.x * 0.3, 1.65 * k, 4.15 * k);
     camera.position.lerp(want, 0.04);
-    look.lerp(focus ? new THREE.Vector3(0, 0.95, 0.2) : new THREE.Vector3(0, 0.62, -0.7), 0.05);
+    look.lerp(focus ? new THREE.Vector3(0, 0.95, 0.2) : new THREE.Vector3(0, 0.55, -0.6), 0.05);
     camera.lookAt(look);
   });
   return null;

@@ -6,7 +6,7 @@ import { Keypair } from "@solana/web3.js";
 
 export const BOT_NAMES = ["KAIROS", "VANTA", "MORROW", "SABLEJAY", "GHOSTLINE", "RAZORFANG", "PALEFOX", "NOVA_K", "TIDEBREAKER", "QUILL"];
 
-export async function readyBot(name: string, minPrivate = 60_000_000n): Promise<BreakroomClient> {
+export async function readyBot(name: string, minPrivate = 160_000_000n): Promise<BreakroomClient> {
   const A = admin();
   const kp = testKey(`bot-${name}`);
   const c = clientFor(kp);
