@@ -4,7 +4,7 @@ import { chromium } from "/Users/anshverma/blackout/node_modules/playwright/inde
 import { execFileSync } from "child_process";
 const id = process.argv[2];
 const URL = "http://localhost:5181";
-const b = await chromium.launch({ channel: "chrome", headless: true });
+const b = await chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=metal", "--enable-gpu"] });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = [];
 p.on("pageerror", (e) => errs.push(e.message));
@@ -45,7 +45,21 @@ await step("start session", async () => {
 await shot("2-ready");
 await p.getByRole("button", { name: "Let's go" }).click();
 await p.goto(`${URL}/#/break/${id}`);
-await step("open break room", async () => { await p.getByText(/spots sold/).waitFor({ timeout: 30000 }); });
+await step("open break room", async () => { await p.locator(".room-head h1").waitFor({ timeout: 30000 });
+  await p.locator(".spot-row").nth(1).waitFor({ timeout: 30000 }); });
+await step("chat: send a message", async () => {
+  await p.getByRole("button", { name: /^Chat/ }).click();
+  await p.getByPlaceholder("Say something").fill("hello from the ui test");
+  await p.getByRole("button", { name: "Send" }).click();
+  await p.getByText("hello from the ui test").waitFor({ timeout: 20000 });
+});
+await shot("chat");
+await step("chat: react", async () => {
+  await p.getByRole("button", { name: "react 🔥" }).click();
+  await p.waitForTimeout(2500);
+});
+await p.getByRole("button", { name: "Spots" }).click();
+if (process.env.CHAT_ONLY) { console.log(errs.length ? "PAGE ERRORS:\n" + errs.join("\n") : "no page errors"); await b.close(); process.exit(0); }
 await step("buy an open spot (no wallet popup)", async () => {
   await p.locator(".spot-row:not(.head)").filter({ hasText: "open" }).first().click();
   await p.getByRole("button", { name: /Buy spot/ }).click();

@@ -248,7 +248,9 @@ function ChatPanel({ b, msgs, names }: { b: BreakState; msgs: ChatMsg[]; names: 
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [msgs.length]);
   const send = async (t: string, kind = 0) => {
     if (!c) return st.setConnect(true);
     if (!r.ready) return st.setOnboard(true);
