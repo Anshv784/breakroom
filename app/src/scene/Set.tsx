@@ -6,7 +6,7 @@ import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { ST } from "../chain/layout";
 
-export const STATUS_COLOR = (status: number) => (status >= ST.ENDED ? "#4fe3a1" : status === ST.SHUFFLING ? "#ffd27a" : status === ST.LIVE ? "#ff5f7a" : "#b58cff");
+export const STATUS_COLOR = (status: number) => (status >= ST.ENDED ? "#4fe3a1" : status === ST.SHUFFLING ? "#ffd27a" : status === ST.LIVE ? "#d79bff" : "#b58cff");
 
 /** Back wall: a curved studio cyc with vertical light strips in the foil colours. */
 export function Studio({ status }: { status: number }) {
@@ -78,7 +78,7 @@ export function TableTop({ status }: { status: number }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <circleGeometry args={[4.3, 128]} />
         {/* satin lacquer: picks up the soft studio light without mirror streaks */}
-        <meshPhysicalMaterial color="#141018" roughness={0.42} metalness={0.35} clearcoat={0.6} clearcoatRoughness={0.35} envMapIntensity={0.5} />
+        <meshPhysicalMaterial color="#110e16" roughness={0.45} metalness={0.3} clearcoat={0.5} clearcoatRoughness={0.4} envMapIntensity={0.3} />
       </mesh>
       {/* inner ring markings */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]}>

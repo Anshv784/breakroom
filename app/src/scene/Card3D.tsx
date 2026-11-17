@@ -11,7 +11,7 @@ import { TIER_COLORS } from "../lib/art";
 export const CW = 0.63; // card width (m) — poker-size proportions
 export const CH = 0.88;
 
-export function Card3D({ face, glow = 0, dim = false, ...props }: { face: CardFace; glow?: number; dim?: boolean } & JSX.IntrinsicElements["group"]) {
+export function Card3D({ face, glow = 0, dim = false, sweepFrom = 0, ...props }: { face: CardFace; glow?: number; dim?: boolean; sweepFrom?: number } & JSX.IntrinsicElements["group"]) {
   const tex = useMemo(() => faceTexture(face), [face.name, face.tier, face.grade, face.art, face.value]);
   const mat = useMemo(() => holoMaterial(tex, face.tier), [tex, face.tier]);
   const back = useMemo(() => new THREE.MeshStandardMaterial({ map: backTexture(), roughness: 0.55, metalness: 0.1 }), []);
@@ -20,6 +20,8 @@ export function Card3D({ face, glow = 0, dim = false, ...props }: { face: CardFa
     mat.uniforms.time.value += dt;
     mat.uniforms.reveal.value = THREE.MathUtils.lerp(mat.uniforms.reveal.value, dim ? 0.35 : 1, 0.1);
     mat.uniforms.glow.value = THREE.MathUtils.lerp(mat.uniforms.glow.value, glow, 0.15);
+    const age = sweepFrom > 0 ? (performance.now() - sweepFrom) / 900 : 9;
+    mat.uniforms.sweep.value = age < 1.6 ? -0.25 + age * 1.0 : -1;
   });
   return (
     <group {...props}>

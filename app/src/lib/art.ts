@@ -54,7 +54,7 @@ function glyph(ctx: CanvasRenderingContext2D, kind: string, cx: number, cy: numb
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.shadowColor = color;
-  ctx.shadowBlur = 30;
+  ctx.shadowBlur = 16;
   switch (kind) {
     case "flame": {
       for (let k = 0; k < 3; k++) {
@@ -167,6 +167,31 @@ function glyph(ctx: CanvasRenderingContext2D, kind: string, cx: number, cy: numb
   ctx.restore();
 }
 
+const FLAVOR = [
+  "Born where the furnace sleeps, it wakes for anyone who pulls it.",
+  "The tide keeps every promise it was never asked to make.",
+  "Patient as bedrock. Older than the first box ever sealed.",
+  "Nobody saw it in the deck. That was the point.",
+  "It arrives a heartbeat before the thunder, and leaves after.",
+  "Whatever you plant here grows back stranger.",
+  "Cold enough to keep a secret for a thousand years.",
+  "It only shines for the one who opened the pack.",
+];
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, max: number, lh: number) {
+  let line = "";
+  let yy = y;
+  for (const w of text.split(" ")) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > max && line) {
+      ctx.fillText(line, x, yy);
+      line = w;
+      yy += lh;
+    } else line = test;
+  }
+  if (line) ctx.fillText(line, x, yy);
+}
+
 export interface CardFace {
   name: string;
   set: string;
@@ -181,9 +206,11 @@ export const faceOf = (c: CardInfo): CardFace => ({ name: c.name, set: c.set, ti
 
 /** Draw a full card face (CARD_W x CARD_H). */
 export function drawCard(canvas: HTMLCanvasElement, c: CardFace) {
-  canvas.width = CARD_W;
-  canvas.height = CARD_H;
+  // drawn at 2x so the card stays sharp in the showcase and the slab viewer
+  canvas.width = CARD_W * 2;
+  canvas.height = CARD_H * 2;
   const ctx = canvas.getContext("2d")!;
+  ctx.scale(2, 2);
   const el = elementOf(c.art);
   const tc = TIER_COLORS[c.tier] ?? TIER_COLORS[0];
   const R = rng(c.art * 2654435761 + c.tier * 97);
@@ -267,9 +294,11 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardFace) {
   ctx.textAlign = "right";
   ctx.fillText(`${(c.set || "GENESIS").toUpperCase()} · ${el.key.toUpperCase()}`, W - 48, 512);
   ctx.textAlign = "left";
-  // flavor lines
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  for (let i = 0; i < 3; i++) ctx.fillRect(48, 552 + i * 22, (W - 96) * (0.55 + R() * 0.45), 8);
+  // flavor line, one per element
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = "italic 400 17px 'Inter Tight', sans-serif";
+  const flavor = FLAVOR[c.art % 8];
+  wrapText(ctx, flavor, 48, 562, W - 96, 22);
   // grade band
   ctx.fillStyle = "rgba(255,255,255,0.06)";
   roundRect(ctx, 46, 628, W - 92, 50, 12);
@@ -288,9 +317,10 @@ export function drawCard(canvas: HTMLCanvasElement, c: CardFace) {
 
 /** The back of every card. */
 export function drawBack(canvas: HTMLCanvasElement) {
-  canvas.width = CARD_W;
-  canvas.height = CARD_H;
+  canvas.width = CARD_W * 2;
+  canvas.height = CARD_H * 2;
   const ctx = canvas.getContext("2d")!;
+  ctx.scale(2, 2);
   const g = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
   g.addColorStop(0, "#1a1424");
   g.addColorStop(1, "#07060a");
@@ -333,7 +363,7 @@ function fitText(ctx: CanvasRenderingContext2D, t: string, x: number, y: number,
 const urlCache = new Map<string, string>();
 /** A data URL of the card face for <img> use (cached). */
 export function cardImage(c: CardFace): string {
-  const key = `${c.name}|${c.tier}|${c.grade}|${c.art}|${c.value ?? ""}`;
+  const key = `v2|${c.name}|${c.tier}|${c.grade}|${c.art}|${c.value ?? ""}`;
   let u = urlCache.get(key);
   if (!u) {
     u = drawCard(document.createElement("canvas"), c).toDataURL("image/webp", 0.88);

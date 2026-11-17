@@ -5,7 +5,7 @@
 //    in front of the spot that won it. Big pulls get a light burst.
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, Lightformer, Sparkles } from "@react-three/drei";
+import { AdaptiveDpr, Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { BreakState, CardInfo } from "../chain/layout";
@@ -28,6 +28,8 @@ export interface StageProps {
 }
 
 const SHOW = new THREE.Vector3(0, 1.22, 1.55);
+/** Frame-rate independent smoothing factor: same feel at 60 Hz and 120 Hz. */
+const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * Math.min(dt, 0.1));
 const easeOut = (t: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
 function spotHome(s: number, n: number) {
@@ -58,7 +60,7 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
   }, [big, isLatest]);
   const target = useMemo(() => new THREE.Object3D(), []);
   const from = useMemo(() => (fromVault ? new THREE.Vector3(0, 0.35, 1.05) : new THREE.Vector3(0, 0.95, -0.3)), [fromVault]);
-  useFrame(() => {
+  useFrame((_, dt) => {
     const o = g.current;
     if (!o) return;
     const age = (performance.now() - seenAt) / 1000;
@@ -71,19 +73,20 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
       target.lookAt(camera.position);
       const flip = Math.PI * (1 - easeOut((age - 0.1) / 0.5));
       target.rotateY(flip);
-      o.quaternion.slerp(target.quaternion, 0.35);
+      o.quaternion.slerp(target.quaternion, damp(14, dt));
       const s = (big ? 1.3 : 1.0) * (0.6 + 0.4 * t);
       o.scale.setScalar(s);
     } else {
-      o.position.lerp(place.pos, seenAt > 0 ? 0.12 : 1);
+      const f = seenAt > 0 ? damp(6, dt) : 1;
+      o.position.lerp(place.pos, f);
       target.rotation.copy(place.rot);
-      o.quaternion.slerp(target.quaternion, seenAt > 0 ? 0.12 : 1);
-      o.scale.lerp(place.scale, seenAt > 0 ? 0.12 : 1);
+      o.quaternion.slerp(target.quaternion, f);
+      o.scale.lerp(place.scale, f);
     }
   });
   return (
     <group ref={g}>
-      <Card3D face={face} glow={glow} />
+      <Card3D face={face} glow={glow * 0.6} sweepFrom={seenAt > 0 ? seenAt + 250 : 0} />
       {big && isLatest && <Burst color={TIER_COLORS[face.tier]} />}
     </group>
   );
@@ -115,10 +118,14 @@ function CameraRig({ focus }: { focus: boolean }) {
   // portrait screens: step back so the whole arc of spots fits
   const k = Math.max(1, Math.min(2.8, 1.55 / (size.width / size.height)));
   const look = useMemo(() => new THREE.Vector3(0, 0.6, 0), []);
-  useFrame(() => {
-    const want = focus ? new THREE.Vector3(pointer.x * 0.25, 1.7 * k, 4.4 * k) : new THREE.Vector3(pointer.x * 0.3, 1.65 * k, 4.15 * k);
-    camera.position.lerp(want, 0.04);
-    look.lerp(focus ? new THREE.Vector3(0, 0.95, 0.2) : new THREE.Vector3(0, 0.55, -0.6), 0.05);
+  const want = useMemo(() => new THREE.Vector3(), []);
+  const lookWant = useMemo(() => new THREE.Vector3(), []);
+  useFrame((_, dt) => {
+    if (focus) want.set(pointer.x * 0.18, 1.7 * k, 4.4 * k);
+    else want.set(pointer.x * 0.2, 1.5 * k + pointer.y * 0.05, 3.75 * k);
+    camera.position.lerp(want, damp(focus ? 2.2 : 1.6, dt));
+    lookWant.set(...((focus ? [0, 0.95, 0.2] : [0, 0.5, -0.75]) as [number, number, number]));
+    look.lerp(lookWant, damp(2.4, dt));
     camera.lookAt(look);
   });
   return null;
@@ -156,7 +163,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
   return (
-    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 1.9, 4.55], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 4.6, 9.5], fov: 42 }} performance={{ min: 0.6 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
       <color attach="background" args={["#07060a"]} />
       <fog attach="fog" args={["#07060a", 8, 16]} />
       <ambientLight intensity={0.5} />
@@ -164,14 +171,15 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
       <directionalLight position={[0, 3.5, 7]} intensity={1.4} color="#e9e2ff" />
       <pointLight position={[-4.5, 2.2, 1.5]} intensity={18} color="#7cf7e4" />
       <pointLight position={[4.5, 2.2, 1.5]} intensity={18} color="#b58cff" />
-      <pointLight position={[0, 1.6, -3.2]} intensity={10} color="#ffd27a" />
+      <pointLight position={[0, 1.6, -3.2]} intensity={8} color="#cfc4ff" />
       <CameraRig focus={focus} />
+      <AdaptiveDpr pixelated={false} />
       <Suspense fallback={null}>
         <Environment resolution={128}>
           <Lightformer form="rect" intensity={4} color="#b58cff" position={[-3, 3, 3]} scale={[6, 1.5, 1]} />
           <Lightformer form="rect" intensity={4} color="#7cf7e4" position={[3, 3, 3]} scale={[6, 1.5, 1]} />
           <Lightformer form="rect" intensity={3} color="#ffffff" position={[0, 2, 6]} scale={[8, 2, 1]} />
-          <Lightformer form="ring" intensity={2} color="#ffd27a" position={[0, 4, -3]} scale={3} />
+          <Lightformer form="ring" intensity={1.6} color="#cfc4ff" position={[0, 4, -3]} scale={3} />
         </Environment>
         <Studio status={b.status} />
         <LightCone />
@@ -249,6 +257,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
 function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; torn: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
   const g = useRef<THREE.Group>(null);
   const tear = useRef(0);
+  const hovered = useRef(false);
   const [tearV, setTearV] = useState(0);
   const center = useMemo(() => new THREE.Vector3(0, 0.82, -0.45), []);
   useFrame(({ clock }, dt) => {
@@ -261,11 +270,13 @@ function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick
       const a = t * 2.4 + s * 1.3;
       want = new THREE.Vector3(Math.cos(a) * 1.25, 0.9 + Math.sin(t * 3 + s) * 0.15, Math.sin(a) * 0.9 - 0.3);
     }
-    o.position.lerp(want, opening || shuffling ? 0.08 : 0.1);
+    o.position.lerp(want, damp(opening || shuffling ? 4 : 5, dt));
     const yaw = opening ? 0 : shuffling ? t * 2 + s : home.yaw;
-    o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw, 0.1);
-    o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? 0 : -0.18, 0.1);
-    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, opening ? 0.85 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8, 0.08));
+    const h = hovered.current && !opening && !shuffling;
+    o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw * (h ? 0.6 : 1), damp(6, dt));
+    o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? 0 : h ? -0.04 : -0.18, damp(6, dt));
+    const base = opening ? 0.85 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8;
+    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, base * (h ? 1.04 : 1), damp(7, dt)));
     const want_t = torn ? 1 : 0;
     if (Math.abs(tear.current - want_t) > 0.001) {
       tear.current = THREE.MathUtils.lerp(tear.current, want_t, Math.min(1, dt * 4));
@@ -283,8 +294,15 @@ function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick
         e.stopPropagation();
         onClick();
       }}
-      onPointerOver={() => (document.body.style.cursor = "pointer")}
-      onPointerOut={() => (document.body.style.cursor = "")}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        hovered.current = true;
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        hovered.current = false;
+        document.body.style.cursor = "";
+      }}
     >
       <Pack3D spot={s} art={art} tear={tearV} />
     </group>

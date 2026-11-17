@@ -22,9 +22,11 @@ export const backTexture = () => canvasTexture("back", drawBack);
 /** A sealed booster pack's print: the set name, a big element glyph, the spot number. */
 export const packTexture = (spot: number, art: number) =>
   canvasTexture(`pack|${spot}|${art}`, (c) => {
-    c.width = 512;
-    c.height = 760;
+    // drawn at 2x for a crisp print up close
+    c.width = 1024;
+    c.height = 1520;
     const ctx = c.getContext("2d")!;
+    ctx.scale(2, 2);
     const el = elementOf(art);
     const g = ctx.createLinearGradient(0, 0, 512, 760);
     g.addColorStop(0, "#1b1325");
@@ -84,9 +86,10 @@ export const packTexture = (spot: number, art: number) =>
 /** Grading label on top of a slab. */
 export const slabLabelTexture = (f: CardFace) =>
   canvasTexture(`label|${f.name}|${f.grade}|${f.cert ?? ""}|${f.tier}`, (c) => {
-    c.width = 512;
-    c.height = 128;
+    c.width = 1024;
+    c.height = 256;
     const ctx = c.getContext("2d")!;
+    ctx.scale(2, 2);
     ctx.fillStyle = "#f4f1f7";
     ctx.fillRect(0, 0, 512, 128);
     ctx.fillStyle = TIER_COLORS[f.tier];
