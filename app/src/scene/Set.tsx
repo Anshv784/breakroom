@@ -2,7 +2,7 @@
 // spot with its nameplate, and the TEE vault in the middle (a sealed booster box inside glass).
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Html, MeshReflectorMaterial, MeshTransmissionMaterial, RoundedBox } from "@react-three/drei";
+import { Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { ST } from "../chain/layout";
 
@@ -77,19 +77,8 @@ export function TableTop({ status }: { status: number }) {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <circleGeometry args={[4.3, 128]} />
-        <MeshReflectorMaterial
-          blur={[800, 400]}
-          resolution={1024}
-          mixBlur={1.4}
-          mixStrength={2}
-          roughness={0.85}
-          depthScale={1}
-          minDepthThreshold={0.4}
-          maxDepthThreshold={1.4}
-          color="#151019"
-          metalness={0.55}
-          mirror={0.18}
-        />
+        {/* satin lacquer: picks up the soft studio light without mirror streaks */}
+        <meshPhysicalMaterial color="#141018" roughness={0.42} metalness={0.35} clearcoat={0.6} clearcoatRoughness={0.35} envMapIntensity={0.5} />
       </mesh>
       {/* inner ring markings */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]}>
@@ -105,7 +94,8 @@ export function TableTop({ status }: { status: number }) {
         <ringGeometry args={[4.22, 4.3, 160]} />
         <meshBasicMaterial ref={rim} color={color} transparent opacity={0.7} toneMapped={false} />
       </mesh>
-      <mesh position={[0, -0.09, 0]}>
+      {/* base sits just below the top so the two never fight for the same pixels */}
+      <mesh position={[0, -0.1, 0]}>
         <cylinderGeometry args={[4.32, 4.1, 0.18, 128]} />
         <meshStandardMaterial color="#1c1622" metalness={0.7} roughness={0.35} />
       </mesh>
@@ -255,7 +245,8 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
       </group>
       {/* glass vault */}
       <RoundedBox args={[0.78, 0.78, 0.78]} radius={0.06} smoothness={4} position={[0, 0.5, 0]}>
-        <MeshTransmissionMaterial thickness={0.25} roughness={status >= ST.ENDED ? 0.2 : 0.3} transmission={1} ior={1.3} chromaticAberration={0.06} anisotropy={0.2} distortion={0.1} distortionScale={0.2} temporalDistortion={0.05} color={color} backside={false} />
+        {/* clean glass: no animated distortion, no grain */}
+        <meshPhysicalMaterial transmission={1} thickness={0.35} roughness={0.06} ior={1.45} clearcoat={1} clearcoatRoughness={0.05} attenuationColor={color} attenuationDistance={2.5} envMapIntensity={0.8} transparent />
       </RoundedBox>
       {/* orbiting scan rings */}
       <group ref={rings} position={[0, 0.5, 0]}>
