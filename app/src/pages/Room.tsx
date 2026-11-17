@@ -366,9 +366,10 @@ function Market({ b, names, selected, setSelected, cards }: { b: BreakState; nam
               <span className="mono">{o.sealed === 0 ? <span className="faint">opened</span> : pct(o.chaseOdds)}</span>
               <span className={`mono ${evDelta >= 0 ? "up" : "down"}`}>{usd(o.ev, 0)}</span>
               <span className="mono">
+                {b.sale === 1 ? <span className="faint">🔒 {b.bidCount[s]} bid{b.bidCount[s] === 1 ? "" : "s"}</span> : <>
                 {b.ask[s] > 0n ? <span className="up">{usd(b.ask[s], 0)}</span> : <span className="faint">—</span>}
                 <span className="faint"> / </span>
-                {b.bid[s] > 0n ? <span>{usd(b.bid[s], 0)}</span> : <span className="faint">—</span>}
+                {b.bid[s] > 0n ? <span>{usd(b.bid[s], 0)}</span> : <span className="faint">—</span>}</>}
               </span>
             </button>
           );

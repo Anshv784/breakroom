@@ -34,7 +34,7 @@ export default function Leaders() {
       ) : top.length === 0 ? (
         <p className="faint">No finished breaks yet — the first big pull lands here.</p>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(128px,1fr))", gap: 14 }}>
           {top.map((p, i) => {
             const c = topCards[i];
             return (
