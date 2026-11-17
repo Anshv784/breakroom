@@ -15,6 +15,7 @@ import { Pack3D } from "./Pack3D";
 import { faceOf, TIER_COLORS, type CardFace } from "../lib/art";
 import { sfx } from "../lib/sfx";
 import { LightCone, SpotStand, Studio, TableTop, Vault } from "./Set";
+import { cardsPerSpot, placements, spotOfPos, teamNames, ELEMENT_COLORS } from "../lib/breakmath";
 
 export interface StageProps {
   b: BreakState;
@@ -46,7 +47,7 @@ function fanPlace(s: number, n: number, k: number, per: number) {
   return { pos: base, rot: new THREE.Euler(-0.32, yaw, -off * 0.09), scale: new THREE.Vector3(sc, sc, sc) };
 }
 
-function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean }) {
+function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean; fromVault?: boolean }) {
   const g = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const [glow, setGlow] = useState(big && isLatest ? 1 : 0);
@@ -56,7 +57,7 @@ function RevealedCard({ face, place, seenAt, isLatest, big }: { face: CardFace; 
     return () => clearTimeout(t);
   }, [big, isLatest]);
   const target = useMemo(() => new THREE.Object3D(), []);
-  const from = useMemo(() => new THREE.Vector3(0, 0.95, -0.3), []);
+  const from = useMemo(() => (fromVault ? new THREE.Vector3(0, 0.35, 1.05) : new THREE.Vector3(0, 0.95, -0.3)), [fromVault]);
   useFrame(() => {
     const o = g.current;
     if (!o) return;
@@ -143,11 +144,14 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
       setLatest(newest);
       const tier = cards[card]?.tier ?? b.cardTier[card] ?? 0;
       sfx.reveal(tier);
-      onPull?.({ pos: newest, card, spot: Math.floor(newest / per) });
+      onPull?.({ pos: newest, card, spot: spotOfPos(b, newest) });
     }
   }, [b.revealed.join(","), cards.length]);
 
-  const opening = b.status === ST.LIVE && b.cursor < b.nCards ? b.openOrder[Math.floor(b.cursor / per)] : -1;
+  const teams = b.mode === 1;
+  const opening = !teams && b.status === ST.LIVE && b.cursor < b.nCards ? b.openOrder[Math.floor(b.cursor / per)] : -1;
+  const place = placements(b);
+  const counts = cardsPerSpot(b);
   const latestAge = latest !== null ? performance.now() - (seen.current.get(latest) ?? 0) : 1e9;
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
@@ -175,8 +179,8 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
         <Vault status={b.status} quiet={focus} label={b.status >= ST.ENDED ? "VERIFIED" : b.status === ST.SHUFFLING ? "VRF SHUFFLING" : b.status === ST.LIVE ? (b.mode === 1 && b.teamsOut < b.nSpots ? "RANDOMIZER" : "SEALED IN TEE") : b.sale === 1 ? "SEALED BIDS" : "BOX LOCKED"} />
         {Array.from({ length: b.nSpots }, (_, s) => {
           const posStart = s * per;
-          const outCount = Array.from({ length: per }, (_, k) => b.revealed[posStart + k] >= 0).filter(Boolean).length;
-          const done = outCount === per;
+          const outCount = teams ? [...place.values()].filter((p) => p.spot === s).length : Array.from({ length: per }, (_, k) => b.revealed[posStart + k] >= 0).filter(Boolean).length;
+          const done = teams ? b.spotTeam[s] !== 0 && outCount >= counts[s] && b.status >= ST.LIVE : outCount === per;
           const isOpening = s === opening;
           const home = spotHome(s, b.nSpots);
           const owner = b.spotOwner[s];
@@ -202,6 +206,8 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
                 yaw={home.yaw}
                 index={s}
                 name={owner ? names(owner) : ""}
+                team={teams && b.spotTeam[s] ? teamNames(b.spotTeam[s]).join(" · ") : undefined}
+                teamColor={teams && b.spotTeam[s] ? ELEMENT_COLORS[Math.log2(b.spotTeam[s] & -b.spotTeam[s])] : undefined}
                 owned={!!owner}
                 mine={mine}
                 selected={selected === s}
@@ -215,12 +221,15 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
           if (c < 0) return null;
           const info = cards[c];
           const face: CardFace = info ? faceOf(info) : { name: "Card", set: "Genesis", tier: b.cardTier[c], grade: 90, art: c, value: b.cardValue[c] };
-          const s = Math.floor(pos / per);
+          const pl = place.get(pos);
+          if (!pl) return null;
+          const s = pl.spot;
           return (
             <RevealedCard
               key={pos}
               face={face}
-              place={fanPlace(s, b.nSpots, pos % per, per)}
+              place={fanPlace(s, b.nSpots, pl.k, Math.max(1, counts[s]))}
+              fromVault={teams}
               seenAt={seen.current.get(pos) ?? 0}
               isLatest={latest === pos}
               big={face.tier >= 3}

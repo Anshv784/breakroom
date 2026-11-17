@@ -120,6 +120,8 @@ export function SpotStand({
   mine,
   selected,
   price,
+  team,
+  teamColor,
   onClick,
 }: {
   pos: THREE.Vector3;
@@ -130,6 +132,8 @@ export function SpotStand({
   mine: boolean;
   selected: boolean;
   price?: string;
+  team?: string;
+  teamColor?: string;
   onClick: () => void;
 }) {
   const edge = mine ? "#4fe3a1" : selected ? "#ffd27a" : owned ? "#b58cff" : "#7cf7e4";
@@ -164,12 +168,13 @@ export function SpotStand({
             backdropFilter: "blur(6px)",
             font: "600 11px Inter Tight, sans-serif",
             color: owned ? "#f3eff6" : "#9ef5e8",
-            maxWidth: 120,
+            maxWidth: 190,
           }}
         >
           <span style={{ background: edge, color: "#0b0910", borderRadius: 5, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{index + 1}</span>
           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{owned ? (mine ? "YOU" : name) : "OPEN"}</span>
           {price && <span style={{ color: "#4fe3a1", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{price}</span>}
+          {team && <span style={{ color: teamColor, fontFamily: "JetBrains Mono, monospace", fontSize: 9, letterSpacing: ".06em" }}>{team.toUpperCase()}</span>}
         </button>
       </Html>
     </group>

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { readerClient, useCards, useNames } from "../lib/useBreaks";
 import { ST, type BreakState, type DeckState, type ReceiptState } from "../chain/layout";
 import { commitment, hex, shuffle } from "../chain/shuffle";
+import { spotOfPos, teamNames } from "../lib/breakmath";
+import { type BidsState } from "../chain/layout";
 import { breakPda, deckPda, receiptPda } from "../chain/client";
 import { cardImage, faceOf } from "../lib/art";
 import { usd } from "../state/store";
@@ -22,6 +24,7 @@ export default function Verify({ id }: { id: bigint }) {
   const [b, setB] = useState<BreakState | null>(null);
   const [deck, setDeck] = useState<DeckState | null>(null);
   const [receipt, setReceipt] = useState<ReceiptState | null>(null);
+  const [bids, setBids] = useState<BidsState | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let alive = true;
@@ -35,6 +38,7 @@ export default function Verify({ id }: { id: bigint }) {
         if (!alive) return;
         setDeck(d);
         setReceipt(r);
+        if (bb.sale === 2) setBids(await c.fetchBids(id, bb.nSpots));
       }
       setLoading(false);
     })();
@@ -65,7 +69,11 @@ export default function Verify({ id }: { id: bigint }) {
       const posOk = b.revealed.every((c, pos) => c < 0 || re.order[pos] === c);
       const allOut = b.revealed.every((c) => c >= 0);
       checks.push({ label: "Shuffle re-run in your browser", detail: `Fisher-Yates over sha256(seed ‖ counter): ${b.revealed.filter((c) => c >= 0).length}/${b.nCards} revealed positions match`, ok: posOk && allOut });
-      checks.push({ label: "Opening order", detail: `Spots opened in the order the seed dictates: ${re.spots.map((x) => x + 1).join(" → ")}`, ok: re.spots.every((x, i) => x === b.openOrder[i]) });
+      checks.push({ label: b.mode === 1 ? "Randomizer order" : "Opening order", detail: `${b.mode === 1 ? "Teams were drawn" : "Spots opened"} in the order the seed dictates: ${re.spots.map((x) => x + 1).join(" → ")}`, ok: re.spots.every((x, i) => x === b.openOrder[i]) });
+      if (b.mode === 1 && deck.spotElems.length) {
+        const teamsOk = b.spotTeam.slice(0, b.nSpots).every((t, s) => t === deck.spotElems[s]);
+        checks.push({ label: "Teams", detail: b.spotTeam.slice(0, b.nSpots).map((t, s) => `#${s + 1} ${teamNames(t).join("+")}`).join(" · "), ok: teamsOk });
+      }
       checks.push({
         label: "Seed source",
         detail: b.seedSource === 1 ? `MagicBlock VRF, delivered by callback into the sealed Deck: ${hex(deck.randomness).slice(0, 24)}…` : "VRF didn't answer in time; seeded inside the TEE (still sealed from everyone, flagged here)",
@@ -76,10 +84,21 @@ export default function Verify({ id }: { id: bigint }) {
     }
     if (receipt?.settled) {
       const per = b.perSpot;
-      const ok = b.revealed.every((c, pos) => c >= 0 && receipt.recipient[c]?.equals(b.spotOwner[Math.floor(pos / per)]!));
+      const ok = b.revealed.every((c, pos) => c >= 0 && receipt.recipient[c]?.equals(b.spotOwner[spotOfPos(b, pos)]!));
+      void per;
       const delivered = receipt.recipient.filter((_, i) => (receipt.claimed & (1n << BigInt(i))) !== 0n).length;
       checks.push({ label: "Settled on Solana", detail: `Magic Action wrote every card's recipient to the Receipt; ${delivered}/${receipt.nCards} delivered to wallets`, ok });
     } else checks.push({ label: "Settled on Solana", detail: "Waiting for the post-commit Magic Action", ok: null });
+    if (b.sale === 2 && bids) {
+      const fair = bids.bids.slice(0, b.nSpots).every((row, s) => {
+        if (!row.length) return true;
+        const sorted = [...row].sort((x, y) => (y.amount > x.amount ? 1 : -1));
+        const price = sorted[1] ? (sorted[1].amount > b.spotPrice ? sorted[1].amount : b.spotPrice) : b.spotPrice;
+        const won = b.trades.find((t) => t.kind === 0 && t.spot === s && t.buyer.equals(sorted[0].bidder));
+        return !won || won.price === (price < sorted[0].amount ? price : sorted[0].amount);
+      });
+      checks.push({ label: "Sealed-bid auction", detail: `${bids.bids.flat().length} bids unsealed after the close; every winner paid the second-highest bid`, ok: fair });
+    }
     return { checks, order, spots };
   }, [b, deck, receipt]);
 
@@ -142,7 +161,7 @@ export default function Verify({ id }: { id: bigint }) {
                   const ok = result!.order![pos] === c;
                   return (
                     <tr key={pos} style={{ borderTop: "1px solid var(--line)" }}>
-                      <td style={{ padding: 8 }}>#{Math.floor(pos / b.perSpot) + 1} <span className="faint">{names(b.spotOwner[Math.floor(pos / b.perSpot)])}</span></td>
+                      <td style={{ padding: 8 }}>#{spotOfPos(b, pos) + 1} <span className="faint">{names(b.spotOwner[spotOfPos(b, pos)])}</span></td>
                       <td>{pos}</td>
                       <td>{result!.order![pos]}</td>
                       <td className={ok ? "up" : "down"}>{c} {ok ? "✓" : "✗"}</td>

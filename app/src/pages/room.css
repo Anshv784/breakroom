@@ -48,16 +48,87 @@
   background: var(--foil);
   transition: width 0.2s linear;
 }
-.mute {
+.stage-tools {
   position: absolute;
   bottom: 18px;
   left: 18px;
   z-index: 5;
+  display: flex;
+  gap: 8px;
+}
+.reactions {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  overflow: hidden;
+}
+.reactions span {
+  position: absolute;
+  bottom: 40px;
+  font-size: 34px;
+  animation: floatUp 2.6s var(--ease) forwards;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
+}
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1.15);
+  }
+  100% {
+    transform: translateY(-420px) scale(0.9) rotate(12deg);
+    opacity: 0;
+  }
+}
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+}
+.chat-log {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 200px;
+}
+.chat-msg {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.chat-msg b {
+  margin-right: 4px;
+}
+.react-bar {
+  display: flex;
+  gap: 6px;
+}
+.react-bar button {
+  all: unset;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  transition: transform 0.15s;
+}
+.react-bar button:hover {
+  transform: scale(1.18);
+}
+.chat-form {
+  display: flex;
+  gap: 8px;
 }
 .pull-banner {
   position: absolute;
   left: 50%;
-  bottom: 22px;
+  bottom: 70px;
   transform: translateX(-50%);
   z-index: 6;
   text-align: center;
