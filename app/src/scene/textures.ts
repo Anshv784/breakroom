@@ -105,3 +105,26 @@ export const slabLabelTexture = (f: CardFace) =>
     ctx.textAlign = "right";
     ctx.fillText((f.grade / 10).toFixed(1), 492, 86);
   });
+
+/** The crimped seal strip on top of a pack: dark foil with pressed ridges and a thin element-coloured tear line. */
+export const crimpTexture = (art: number) =>
+  canvasTexture(`crimp|${art}`, (c) => {
+    c.width = 512;
+    c.height = 96;
+    const x = c.getContext("2d")!;
+    const el = elementOf(art);
+    const g = x.createLinearGradient(0, 0, 0, 96);
+    g.addColorStop(0, "#241a30");
+    g.addColorStop(1, "#140f1b");
+    x.fillStyle = g;
+    x.fillRect(0, 0, 512, 96);
+    for (let i = 0; i < 512; i += 8) {
+      x.fillStyle = "rgba(255,255,255,0.07)";
+      x.fillRect(i, 0, 3, 80);
+      x.fillStyle = "rgba(0,0,0,0.25)";
+      x.fillRect(i + 4, 0, 2, 80);
+    }
+    // dotted tear line
+    x.fillStyle = el.a;
+    for (let i = 6; i < 512; i += 14) x.fillRect(i, 86, 7, 3);
+  });

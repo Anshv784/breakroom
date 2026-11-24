@@ -93,7 +93,7 @@ export default function Room({ id }: { id: bigint }) {
       <div className="room-stage">
         <Suspense fallback={<div className="skeleton" style={{ position: "absolute", inset: 0, borderRadius: 0 }} />}>
           <Stage
-            key={replayKey}
+            epoch={replayKey}
             b={b}
             cards={cards}
             names={names}

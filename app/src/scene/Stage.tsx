@@ -8,6 +8,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { AdaptiveDpr, Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
+import { CAPTURE } from "../lib/capture";
 import type { BreakState, CardInfo } from "../chain/layout";
 import { ST } from "../chain/layout";
 import { Card3D, CH } from "./Card3D";
@@ -59,7 +60,7 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
     return () => clearTimeout(t);
   }, [big, isLatest]);
   const target = useMemo(() => new THREE.Object3D(), []);
-  const from = useMemo(() => (fromVault ? new THREE.Vector3(0, 0.35, 1.05) : new THREE.Vector3(0, 0.95, -0.3)), [fromVault]);
+  const from = useMemo(() => (fromVault ? new THREE.Vector3(0, 0.35, 1.05) : new THREE.Vector3(0, 1.02, -0.42)), [fromVault]);
   useFrame((_, dt) => {
     const o = g.current;
     if (!o) return;
@@ -94,21 +95,32 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
 
 function Burst({ color }: { color: string }) {
   const ref = useRef<THREE.Group>(null);
+  const disc = useRef<THREE.MeshBasicMaterial>(null);
   const t0 = useRef(performance.now());
+  const tex = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const x = c.getContext("2d")!;
+    const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.35, "rgba(255,255,255,0.35)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(c);
+  }, []);
   useFrame(() => {
     const age = (performance.now() - t0.current) / 1000;
-    if (ref.current) {
-      ref.current.scale.setScalar(0.5 + age * 2.2);
-      ref.current.visible = age < 1.6;
-    }
+    if (ref.current) ref.current.visible = age < 2.4;
+    if (disc.current) disc.current.opacity = 0.26 * Math.min(1, age / 0.35) * (1 - Math.min(1, Math.max(0, (age - 1.2) / 1.1)));
   });
   return (
     <group ref={ref}>
-      <Sparkles count={60} scale={1.6} size={8} speed={1.6} color={color} />
-      <mesh>
-        <ringGeometry args={[0.5, 0.56, 64]} />
-        <meshBasicMaterial color={color} transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} />
+      <mesh position={[0, 0, -0.05]} scale={1.45}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial ref={disc} map={tex} color={color} transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
+      <Sparkles count={26} scale={[1.4, 1.6, 0.6]} size={3.5} speed={0.35} color={color} opacity={0.8} />
     </group>
   );
 }
@@ -131,12 +143,19 @@ function CameraRig({ focus }: { focus: boolean }) {
   return null;
 }
 
-export default function Stage({ b, cards, names, selected, onSelect, me, onPull }: StageProps) {
+export default function Stage({ b, cards, names, selected, onSelect, me, onPull, epoch = 0 }: StageProps & { epoch?: number }) {
   const per = b.perSpot;
   // first time this client saw each position revealed (0 = was already out when we arrived)
   const seen = useRef<Map<number, number>>(new Map());
   const firstLoad = useRef(true);
   const [latest, setLatest] = useState<number | null>(null);
+  const lastEpoch = useRef(epoch);
+  if (lastEpoch.current !== epoch) {
+    // a replay started: forget what we've seen so every reveal animates again
+    lastEpoch.current = epoch;
+    seen.current = new Map();
+    firstLoad.current = false;
+  }
   useEffect(() => {
     const now = performance.now();
     let newest: number | null = null;
@@ -163,7 +182,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
   return (
-    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 4.6, 9.5], fov: 42 }} performance={{ min: 0.6 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 4.6, 9.5], fov: 42 }} performance={{ min: 0.6 }} gl={{ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: CAPTURE }}>
       <color attach="background" args={["#07060a"]} />
       <fog attach="fog" args={["#07060a", 8, 16]} />
       <ambientLight intensity={0.5} />
@@ -185,6 +204,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
         <LightCone />
         <TableTop status={b.status} />
         <Vault status={b.status} quiet={focus} label={b.status >= ST.ENDED ? "VERIFIED" : b.status === ST.SHUFFLING ? "VRF SHUFFLING" : b.status === ST.LIVE ? (b.mode === 1 && b.teamsOut < b.nSpots ? "RANDOMIZER" : "SEALED IN TEE") : b.sale === 1 ? "SEALED BIDS" : "BOX LOCKED"} />
+        <group key={epoch}>
         {Array.from({ length: b.nSpots }, (_, s) => {
           const posStart = s * per;
           const outCount = teams ? [...place.values()].filter((p) => p.spot === s).length : Array.from({ length: per }, (_, k) => b.revealed[posStart + k] >= 0).filter(Boolean).length;
@@ -193,22 +213,20 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
           const home = spotHome(s, b.nSpots);
           const owner = b.spotOwner[s];
           const mine = !!owner && owner.toBase58() === me;
-          const art = (cards[b.revealed[posStart]]?.art ?? s * 3) % 8;
+          const art = (s * 3) % 8; // fixed per spot, so the print never swaps mid-rip
           return (
             <group key={s}>
-              {!done && (
-                <PackSlot
-                  n={b.nSpots}
-                  s={s}
-                  art={art}
-                  home={home}
-                  opening={isOpening}
-                  torn={isOpening && outCount > 0}
-                  selected={selected === s}
-                  shuffling={b.status === ST.SHUFFLING}
-                  onClick={() => onSelect(s)}
-                />
-              )}
+              <PackSlot
+                n={b.nSpots}
+                s={s}
+                art={art}
+                home={home}
+                opening={isOpening}
+                gone={done}
+                selected={selected === s}
+                shuffling={b.status === ST.SHUFFLING}
+                onClick={() => onSelect(s)}
+              />
               <SpotStand
                 pos={home.pos}
                 yaw={home.yaw}
@@ -245,6 +263,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
             />
           );
         })}
+        </group>
         <Sparkles count={50} scale={[9, 3, 6]} position={[0, 1.6, 0]} size={1.6} speed={0.2} color="#cdb9ff" opacity={0.35} />
         <EffectComposer>
           <Bloom intensity={0.3} luminanceThreshold={0.9} luminanceSmoothing={0.15} mipmapBlur />
@@ -255,38 +274,71 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull 
   );
 }
 
-function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; torn: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
+/**
+ * One spot's pack. Opening choreography (all frame-rate independent, no flashes):
+ *  glide to the centre -> settle -> a short anticipation shake -> the top peels off (rip sound)
+ *  -> cards rise out of it (RevealedCard) -> once its cards are out the empty pack drops and fades.
+ */
+function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; gone: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
   const g = useRef<THREE.Group>(null);
-  const tear = useRef(0);
+  const tear = useRef(gone ? 1 : 0);
   const hovered = useRef(false);
-  const [tearV, setTearV] = useState(0);
+  const openedAt = useRef<number | null>(null);
+  const goneAt = useRef<number | null>(gone ? -1 : null); // -1: already gone when we arrived
+  const ripped = useRef(false);
   const center = useMemo(() => new THREE.Vector3(0, 0.82, -0.45), []);
+  const want = useMemo(() => new THREE.Vector3(), []);
+  useEffect(() => {
+    if (opening && openedAt.current === null) openedAt.current = performance.now();
+  }, [opening]);
+  useEffect(() => {
+    if (gone && goneAt.current === null) goneAt.current = performance.now() + 650; // let the last card clear the pack first
+  }, [gone]);
   useFrame(({ clock }, dt) => {
     const o = g.current;
     if (!o) return;
     const t = clock.elapsedTime;
-    let want = home.pos.clone();
-    if (opening) want = center.clone();
+    const now = performance.now();
+    // gone: drop, tip forward and fade out of the frame, then hide
+    if (goneAt.current !== null && now >= goneAt.current) {
+      if (goneAt.current < 0) {
+        o.visible = false;
+        return;
+      }
+      const k = Math.min(1, (now - goneAt.current) / 700);
+      const e = k * k;
+      o.position.y -= dt * (0.4 + 2.2 * e);
+      o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, 0.9, damp(3, dt));
+      o.scale.setScalar(Math.max(0.0001, o.scale.x * (1 - dt * 2.4)));
+      o.visible = k < 1;
+      return;
+    }
+    const since = openedAt.current !== null ? (now - openedAt.current) / 1000 : -1;
+    want.copy(home.pos);
+    if (opening) want.copy(center);
     if (shuffling) {
       const a = t * 2.4 + s * 1.3;
-      want = new THREE.Vector3(Math.cos(a) * 1.25, 0.9 + Math.sin(t * 3 + s) * 0.15, Math.sin(a) * 0.9 - 0.3);
+      want.set(Math.cos(a) * 1.25, 0.9 + Math.sin(t * 3 + s) * 0.15, Math.sin(a) * 0.9 - 0.3);
     }
-    o.position.lerp(want, damp(opening || shuffling ? 4 : 5, dt));
+    o.position.lerp(want, damp(opening ? 4.5 : shuffling ? 4 : 5, dt));
     const yaw = opening ? 0 : shuffling ? t * 2 + s : home.yaw;
     const h = hovered.current && !opening && !shuffling;
     o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw * (h ? 0.6 : 1), damp(6, dt));
-    o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? 0 : h ? -0.04 : -0.18, damp(6, dt));
-    const base = opening ? 0.85 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8;
-    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, base * (h ? 1.04 : 1), damp(7, dt)));
-    const want_t = torn ? 1 : 0;
-    if (Math.abs(tear.current - want_t) > 0.001) {
-      tear.current = THREE.MathUtils.lerp(tear.current, want_t, Math.min(1, dt * 4));
-      setTearV(tear.current);
+    o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? -0.05 : h ? -0.04 : -0.18, damp(6, dt));
+    // anticipation: a small, quick shake once it has settled in the centre
+    const shake = opening && since > 0.45 && since < 0.7 ? Math.sin(since * 70) * 0.03 * (1 - (since - 0.45) / 0.25) : 0;
+    o.rotation.z = THREE.MathUtils.lerp(o.rotation.z, shake, damp(30, dt));
+    const base = opening ? 0.95 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8;
+    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, base * (h ? 1.04 : 1), damp(opening ? 4 : 7, dt)));
+    // the rip: starts right after the shake, takes ~0.7 s
+    if (opening && since > 0.7) {
+      if (!ripped.current) {
+        ripped.current = true;
+        sfx.rip();
+      }
+      tear.current = Math.min(1, (since - 0.7) / 0.55);
     }
   });
-  useEffect(() => {
-    if (torn) sfx.rip();
-  }, [torn]);
   return (
     <group
       ref={g}
@@ -305,7 +357,7 @@ function PackSlot({ n, s, art, home, opening, torn, selected, shuffling, onClick
         document.body.style.cursor = "";
       }}
     >
-      <Pack3D spot={s} art={art} tear={tearV} />
+      <Pack3D spot={s} art={art} tear={tear} />
     </group>
   );
 }

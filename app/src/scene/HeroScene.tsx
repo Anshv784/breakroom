@@ -4,6 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
+import { CAPTURE } from "../lib/capture";
 import { Slab3D } from "./Card3D";
 import { Pack3D } from "./Pack3D";
 import type { CardFace } from "../lib/art";
@@ -45,7 +46,7 @@ function Orbit() {
 
 export default function HeroScene() {
   return (
-    <Canvas dpr={[1, 2]} camera={{ position: [0, 0.2, 4.4], fov: 38 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+    <Canvas dpr={[1, 2]} camera={{ position: [0, 0.2, 4.4], fov: 38 }} gl={{ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: CAPTURE }}>
       <color attach="background" args={["#09080b"]} />
       <fog attach="fog" args={["#09080b", 4.5, 9]} />
       <ambientLight intensity={0.3} />

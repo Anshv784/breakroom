@@ -20,7 +20,7 @@ export function Studio({ status }: { status: number }) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const fast = status === ST.SHUFFLING ? 6 : status === ST.LIVE ? 2 : 0.8;
-    mats.current.forEach((m) => m && (m.opacity = 0.12));
+    mats.current.forEach((m) => m && (m.opacity = 0.05));
     void t;
     void fast;
   });
@@ -131,10 +131,10 @@ export function SpotStand({
   quiet?: boolean;
   onClick: () => void;
 }) {
-  const edge = mine ? "#4fe3a1" : selected ? "#ffd27a" : owned ? "#b58cff" : "#7cf7e4";
+  const edge = mine ? "#4fe3a1" : selected ? "#ffd27a" : owned ? "#b58cff" : "#8a8295";
   const glow = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(({ clock }) => {
-    if (glow.current) glow.current.opacity = selected ? 0.45 : owned ? 0.24 : 0.16;
+    if (glow.current) glow.current.opacity = selected ? 0.16 : mine ? 0.12 : 0.03;
     void clock;
   });
   return (
@@ -146,7 +146,7 @@ export function SpotStand({
         <planeGeometry args={[0.7, 0.46]} />
         <meshBasicMaterial ref={glow} color={edge} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
-      <Html position={[0, 0.07, 0.36]} center transform={false} distanceFactor={4.2} zIndexRange={[20, 0]} style={{ pointerEvents: "auto" }}>
+      <Html position={[0, 0.07, 0.33]} center transform={false} distanceFactor={4.2} zIndexRange={[20, 0]} style={{ pointerEvents: "auto" }}>
         <button
           onClick={onClick}
           style={{
@@ -154,25 +154,26 @@ export function SpotStand({
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            padding: "3px 8px 3px 4px",
-            borderRadius: 8,
+            gap: 5,
+            padding: "2px 7px",
+            borderRadius: 999,
             whiteSpace: "nowrap",
-            background: selected ? "rgba(255,210,122,.18)" : "rgba(8,6,12,.82)",
-            border: `1px solid ${edge}${selected || mine ? "" : "66"}`,
-            boxShadow: selected ? `0 0 18px ${edge}66` : "none",
+            background: selected ? "rgba(255,210,122,.14)" : "rgba(10,8,14,.72)",
+            border: `1px solid ${selected ? "#ffd27a88" : mine ? "#4fe3a188" : "rgba(255,255,255,.10)"}`,
             backdropFilter: "blur(6px)",
-            font: "600 11px Inter Tight, sans-serif",
-            color: owned ? "#f3eff6" : "#9ef5e8",
-            maxWidth: 190,
-            opacity: quiet ? 0.12 : 1,
-            transition: "opacity .35s ease",
+            font: "500 9.5px Inter Tight, sans-serif",
+            letterSpacing: ".01em",
+            color: owned ? "#e9e4ef" : "#8a8295",
+            maxWidth: 150,
+            opacity: quiet ? 0.1 : 1,
+            transition: "opacity .35s ease, background .2s",
           }}
         >
-          <span style={{ background: edge, color: "#0b0910", borderRadius: 5, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{index + 1}</span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{owned ? (mine ? "YOU" : name) : "OPEN"}</span>
-          {price && <span style={{ color: "#4fe3a1", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{price}</span>}
-          {team && <span style={{ color: teamColor, fontFamily: "JetBrains Mono, monospace", fontSize: 9, letterSpacing: ".06em" }}>{team.toUpperCase()}</span>}
+          <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 8.5, color: "#7d7586" }}>{String(index + 1).padStart(2, "0")}</span>
+          <span style={{ width: 4, height: 4, borderRadius: 4, background: mine ? "#4fe3a1" : owned ? "#b58cff" : "#5d5666", flex: "none" }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{owned ? (mine ? "You" : name) : "open"}</span>
+          {price && <span style={{ color: "#4fe3a1", fontFamily: "JetBrains Mono, monospace", fontSize: 8.5 }}>{price}</span>}
+          {team && <span style={{ color: teamColor, fontFamily: "JetBrains Mono, monospace", fontSize: 8, letterSpacing: ".06em" }}>{team.toUpperCase()}</span>}
         </button>
       </Html>
     </group>
@@ -218,19 +219,19 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
     const t = clock.elapsedTime;
     const shuffling = status === ST.SHUFFLING;
     if (box.current) {
-      box.current.rotation.y += dt * (shuffling ? 5 : 0.35);
-      box.current.position.y = 0.32 + (shuffling ? Math.sin(t * 30) * 0.015 : Math.sin(t * 1.4) * 0.025);
+      box.current.rotation.y += dt * (shuffling ? 2.4 : 0.2);
+      box.current.position.y = 0.32 + Math.sin(t * 1.2) * 0.02;
       const open = status >= ST.ENDED ? 1 : 0;
       box.current.scale.setScalar(THREE.MathUtils.lerp(box.current.scale.x, open ? 0.75 : 1, 0.05));
     }
     if (rings.current) {
-      rings.current.rotation.y += dt * (shuffling ? 3 : 0.6);
-      rings.current.children.forEach((r, i) => (r.rotation.x = Math.sin(t * 0.7 + i) * 0.5 + i));
+      rings.current.rotation.y += dt * (shuffling ? 1.6 : 0.25);
+      rings.current.position.y = 0.5 + (shuffling ? Math.sin(t * 2) * 0.18 : 0);
     }
-    if (g.current) g.current.scale.setScalar(THREE.MathUtils.lerp(g.current.scale.x, quiet ? 0.5 : 0.62, 0.08));
+    if (g.current) g.current.scale.setScalar(THREE.MathUtils.lerp(g.current.scale.x, quiet ? 0.42 : 0.52, 0.08));
   });
   return (
-    <group ref={g} position={[0, 0, 1.05]} scale={0.62}>
+    <group ref={g} position={[0, 0, 1.05]} scale={0.52}>
       {/* plinth */}
       <mesh position={[0, 0.05, 0]}>
         <cylinderGeometry args={[0.52, 0.6, 0.1, 64]} />
@@ -250,28 +251,26 @@ export function Vault({ status, quiet, label }: { status: number; quiet: boolean
       {/* glass vault */}
       <RoundedBox args={[0.78, 0.78, 0.78]} radius={0.06} smoothness={4} position={[0, 0.5, 0]}>
         {/* clean glass: no animated distortion, no grain */}
-        <meshPhysicalMaterial transmission={1} thickness={0.35} roughness={0.06} ior={1.45} clearcoat={1} clearcoatRoughness={0.05} attenuationColor={color} attenuationDistance={2.5} envMapIntensity={0.8} transparent />
+        <meshPhysicalMaterial transmission={1} thickness={0.35} roughness={0.14} ior={1.4} clearcoat={0.25} clearcoatRoughness={0.3} specularIntensity={0.35} attenuationColor={color} attenuationDistance={2.5} envMapIntensity={0.55} transparent />
       </RoundedBox>
       {/* orbiting scan rings */}
       <group ref={rings} position={[0, 0.5, 0]}>
-        {[0.6, 0.7].map((r, i) => (
-          <mesh key={i}>
-            <torusGeometry args={[r, 0.006, 8, 128]} />
-            <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0.85} />
-          </mesh>
-        ))}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.56, 0.004, 8, 160]} />
+          <meshBasicMaterial color={color} transparent opacity={0.55} />
+        </mesh>
       </group>
-      <pointLight color={color} intensity={0.7} distance={1.6} position={[0, 0.6, 0.7]} />
-      <Html center position={[0, -0.12, 0.75]} distanceFactor={5} style={{ pointerEvents: "none" }}>
+      <pointLight color={color} intensity={0.35} distance={1.4} position={[0, 0.6, 0.7]} />
+      <Html center position={[0, 0.02, 0.72]} distanceFactor={5} style={{ pointerEvents: "none" }}>
         <div
           style={{
-            font: "600 10px JetBrains Mono, monospace",
-            letterSpacing: ".22em",
+            font: "500 6.5px JetBrains Mono, monospace",
+            letterSpacing: ".2em",
             color,
             whiteSpace: "nowrap",
-            padding: "3px 9px",
+            padding: "2px 7px",
             borderRadius: 999,
-            border: `1px solid ${color}55`,
+            border: `1px solid ${color}44`,
             background: "rgba(8,6,12,.7)",
             opacity: quiet ? 0 : 1,
             transition: "opacity .4s",
