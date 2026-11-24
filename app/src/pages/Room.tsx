@@ -9,6 +9,7 @@ import { chaseIndex, spotOfPos, evHistory, oddsFor, snapshot, stepsDone, teamNam
 import { cardImage, faceOf, TIER_NAMES, TIER_COLORS } from "../lib/art";
 import { StatusChip } from "../ui/BreakCard";
 import { sfx } from "../lib/sfx";
+import { settings, useSettings } from "../lib/settings";
 import { readerClient } from "../lib/useBreaks";
 import { shareCard } from "../lib/share";
 import { hostRep } from "../lib/rep";
@@ -78,11 +79,22 @@ export default function Room({ id }: { id: bigint }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [tab, setTab] = useState<"market" | "chat" | "box" | "tape">("market");
   const [pull, setPull] = useState<{ card: number; spot: number; at: number } | null>(null);
+  const [shareFor, setShareFor] = useState<number | null>(null);
   const [teamBanner, setTeamBanner] = useState<{ spot: number; mask: number; at: number } | null>(null);
-  const [muted, setMuted] = useState(sfx.muted);
+  const sound = useSettings();
+  const muted = !sound.sfx && !sound.music;
   const me = useApp((s) => s.client?.me.toBase58());
   const { list } = useBreakList(30_000);
   const rep = useMemo(() => (live ? hostRep(list, live.host) : null), [list.length, live?.host.toBase58()]);
+
+  // a good pull of yours: offer to share it once the reveal has played
+  useEffect(() => {
+    if (!pull || replay !== null) return;
+    const info = cards[pull.card];
+    if (!info || info.tier < 2 || live?.spotOwner[pull.spot]?.toBase58() !== me) return;
+    const t = setTimeout(() => setShareFor(pull.card), 2800);
+    return () => clearTimeout(t);
+  }, [pull?.at]);
 
   // replay: step through the finished break locally
   useEffect(() => {
@@ -107,12 +119,28 @@ export default function Room({ id }: { id: bigint }) {
     lastTeams.current = b.teamsOut;
   }, [b?.teamsOut]);
 
-  if (error) return <div className="wrap" style={{ padding: 64 }}><div className="panel" style={{ padding: 32 }}>{error}. <a href="#/breaks" className="muted">Back to breaks</a></div></div>;
-  if (!b || !live) return <div className="room"><div className="room-stage skeleton" style={{ borderRadius: 0 }} /><aside className="room-side" /></div>;
-
   const ripSpot = replay === null && live && live.mode !== 1 && live.status === ST.LIVE && live.ripArmed === 1 ? live.openOrder[Math.floor(live.cursor / live.perSpot)] : -1;
   const ripOwner = ripSpot >= 0 ? live!.spotOwner[ripSpot] : null;
   const ripMine = !!ripOwner && ripOwner.toBase58() === me;
+  // "your pack is up": chime, flash the tab title, and notify if you're in another tab
+  useEffect(() => {
+    if (!ripMine || !settings.get().alerts) return;
+    sfx.yourTurn();
+    if (document.hidden && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      const n = new Notification("Your pack is up", { body: "Swipe across the seal to rip it open. 8 seconds.", icon: "/favicon.svg", tag: "rip" });
+      n.onclick = () => (window.focus(), n.close());
+    }
+    const base = document.title;
+    let on = false;
+    const t = setInterval(() => (document.title = (on = !on) ? "● Your pack is up!" : base), 700);
+    return () => {
+      clearInterval(t);
+      document.title = base;
+    };
+  }, [ripMine, live?.cursor]);
+  if (error) return <div className="wrap" style={{ padding: 64 }}><div className="panel" style={{ padding: 32 }}>{error}. <a href="#/breaks" className="muted">Back to breaks</a></div></div>;
+  if (!b || !live) return <div className="room"><div className="room-stage skeleton" style={{ borderRadius: 0 }} /><aside className="room-side" /></div>;
+
   const onRip = () => {
     const c = useApp.getState().client;
     if (!c) return;
@@ -120,6 +148,7 @@ export default function Room({ id }: { id: bigint }) {
   };
   const pulled = pull && cards[pull.card];
   const pulledMine = pulled && b.spotOwner[pull!.spot]?.toBase58() === me;
+  const shareCardInfo = shareFor !== null ? cards[shareFor] : null;
   return (
     <div className="room">
       <div className="room-stage">
@@ -166,9 +195,27 @@ export default function Room({ id }: { id: bigint }) {
             )}
           </div>
         )}
+        {shareCardInfo && (
+          <div className="scrim" onClick={() => setShareFor(null)}>
+            <div className="panel modal share-pop" onClick={(e) => e.stopPropagation()} style={{ ["--tc" as any]: TIER_COLORS[shareCardInfo.tier] }}>
+              <img src={cardImage(faceOf(shareCardInfo))} alt={shareCardInfo.name} />
+              <div>
+                <div className="mono" style={{ color: "var(--tc)", fontSize: 12, letterSpacing: ".2em" }}>YOU PULLED · {TIER_NAMES[shareCardInfo.tier]}</div>
+                <h2 className="display">{shareCardInfo.name}</h2>
+                <div className="mono" style={{ fontSize: 26, margin: "2px 0 14px" }}>{usd(shareCardInfo.value, 0)}</div>
+                <p className="muted">It's yours. Show it off: the post links to the proof that nobody picked it.</p>
+                <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                  <button className="btn primary" onClick={() => shareCard(shareCardInfo, live.title, live.breakId)}>Share on X</button>
+                  <a className="btn" href="#/vault">See it in your vault</a>
+                  <button className="btn ghost" onClick={() => setShareFor(null)}>Later</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="stage-tools">
-          <button className="btn sm ghost" onClick={() => { sfx.setMuted(!muted); setMuted(!muted); }} title={muted ? "Sound off" : "Sound on"}>
-            {muted ? "🔇" : "🔊"}
+          <button className="btn sm ghost" onClick={() => sfx.setMuted(!muted)} title={muted ? "Sound off" : "Sound on"} aria-label={muted ? "Turn sound on" : "Turn sound off"}>
+            {muted ? "Sound off" : "Sound on"}
           </button>
           {live.status >= ST.ENDED && (
             <button

@@ -1,15 +1,10 @@
 // Synthesized sound: no audio files. A foil rip, a card flip, and a rising chime for big pulls.
 let ctx: AudioContext | null = null;
-let muted = (() => {
-  try {
-    return localStorage.getItem("br-muted") === "1";
-  } catch {
-    return false;
-  }
-})();
+import { settings } from "./settings";
+import { music } from "./music";
 
 function ac() {
-  if (muted) return null;
+  if (!settings.get().sfx) return null;
   try {
     ctx ??= new AudioContext();
     if (ctx.state === "suspended") ctx.resume();
@@ -43,17 +38,22 @@ function tone(c: AudioContext, f: number, at: number, dur: number, gain: number,
 
 export const sfx = {
   get muted() {
-    return muted;
+    return !settings.get().sfx && !settings.get().music;
   },
+  /** the room's quick toggle: all sound off, or back on */
   setMuted(v: boolean) {
-    muted = v;
-    try {
-      localStorage.setItem("br-muted", v ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
+    settings.set({ sfx: !v, music: !v });
+  },
+  /** "your pack is up": two soft rising notes */
+  yourTurn() {
+    const c = ac();
+    if (!c) return;
+    const t = c.currentTime;
+    tone(c, 659.25, t, 0.35, 0.07, "triangle");
+    tone(c, 987.77, t + 0.14, 0.5, 0.07, "triangle");
   },
   rip() {
+    music.duck(1600, 0.4);
     const c = ac();
     if (!c) return;
     const n = noise(c, 0.35);
@@ -67,6 +67,7 @@ export const sfx = {
     n.start();
   },
   reveal(tier: number) {
+    if (tier >= 3) music.duck(2600, 0.3);
     const c = ac();
     if (!c) return;
     const t = c.currentTime;

@@ -368,3 +368,39 @@
     transform: translateX(6px);
   }
 }
+
+.share-pop {
+  width: min(620px, 100%);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  align-items: center;
+  border-radius: 26px;
+  border-color: var(--tc);
+  box-shadow: 0 0 80px -20px var(--tc), var(--shadow);
+  animation: bannerIn 0.45s var(--ease);
+}
+.share-pop img {
+  width: 100%;
+  border-radius: 12px;
+  transform: rotate(-3deg);
+  box-shadow: 0 24px 50px -16px rgba(0, 0, 0, 0.9), 0 0 40px -10px var(--tc);
+}
+.share-pop h2 {
+  margin: 6px 0 4px;
+  font-size: 30px;
+}
+.share-pop p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .share-pop {
+    grid-template-columns: 1fr;
+  }
+  .share-pop img {
+    width: 60%;
+    justify-self: center;
+  }
+}

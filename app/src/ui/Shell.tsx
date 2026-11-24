@@ -6,6 +6,8 @@ import { detectWallets, onWalletsChanged, type Detected } from "../state/wallet"
 import { IS_MAINNET } from "../chain/config";
 import { Logo } from "./Logo";
 import { TestBadge } from "./Footer";
+import { MusicButton, SettingsButton } from "./Settings";
+import { settings } from "../lib/settings";
 import "./gate.css";
 import { CLUSTER } from "../chain/config";
 
@@ -39,6 +41,8 @@ export function Nav({ route }: { route: string[] }) {
         </nav>
         <div className="nav-right">
           <TestBadge />
+          <MusicButton />
+          <SettingsButton />
           {s.client ? (
             <>
               <button className="btn sm ghost" onClick={() => (s.locked ? s.unlock() : s.setOnboard(true))} title={s.locked ? "Sign once to read your private balance" : "Private balance inside the TEE"}>
@@ -96,6 +100,7 @@ function AccountMenu() {
           </div>
           <a href="#/vault" onClick={() => setOpen(false)}>Your vault <span className="faint">→</span></a>
           <button onClick={() => (s.setOnboard(true), setOpen(false))}>Balance & setup</button>
+          <button onClick={() => (settings.setOpen(true), setOpen(false))}>Settings</button>
           <button
             onClick={() => {
               navigator.clipboard?.writeText(me);

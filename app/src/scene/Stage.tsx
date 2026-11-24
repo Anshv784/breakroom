@@ -15,6 +15,7 @@ import { Card3D, CH } from "./Card3D";
 import { Pack3D } from "./Pack3D";
 import { faceOf, TIER_COLORS, type CardFace } from "../lib/art";
 import { sfx } from "../lib/sfx";
+import { settings } from "../lib/settings";
 import { LightCone, SpotStand, Studio, TableTop, Vault } from "./Set";
 import { cardsPerSpot, placements, spotOfPos, teamNames, ELEMENT_COLORS } from "../lib/breakmath";
 
@@ -159,8 +160,9 @@ function CameraRig({ focus }: { focus: boolean }) {
   const want = useMemo(() => new THREE.Vector3(), []);
   const lookWant = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, dt) => {
-    if (focus) want.set(pointer.x * 0.04, 1.65 * k, 4.2 * k);
-    else want.set(pointer.x * 0.2, 1.5 * k + pointer.y * 0.05, 3.75 * k);
+    const px = settings.get().reduceMotion ? 0 : pointer.x, py = settings.get().reduceMotion ? 0 : pointer.y;
+    if (focus) want.set(px * 0.04, 1.65 * k, 4.2 * k);
+    else want.set(px * 0.2, 1.5 * k + py * 0.05, 3.75 * k);
     camera.position.lerp(want, damp(focus ? 2.2 : 1.6, dt));
     lookWant.set(...((focus ? [0, 1.0, -0.1] : [0, 0.5, -0.75]) as [number, number, number]));
     look.lerp(lookWant, damp(2.4, dt));

@@ -6,6 +6,8 @@ import "./styles.css";
 import { useRoute } from "./lib/router";
 import { ConnectModal, Nav, OnboardModal, Toasts } from "./ui/Shell";
 import { Footer } from "./ui/Footer";
+import { SettingsPanel } from "./ui/Settings";
+import "./lib/music";
 import { useApp } from "./state/store";
 import { detectWallets } from "./state/wallet";
 
@@ -89,6 +91,7 @@ function App() {
       {!fullBleed && <Footer />}
       <ConnectModal />
       <OnboardModal />
+      <SettingsPanel />
       <Toasts />
     </>
   );
