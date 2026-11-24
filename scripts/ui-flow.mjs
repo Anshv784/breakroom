@@ -4,6 +4,7 @@ import { chromium } from "/Users/anshverma/blackout/node_modules/playwright/inde
 import { execFileSync } from "child_process";
 const id = process.argv[2];
 const URL = "http://localhost:5181";
+const RUN = Date.now().toString(36).slice(-5);
 const b = await chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=metal", "--enable-gpu"] });
 const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = [];
@@ -49,9 +50,9 @@ await step("open break room", async () => { await p.locator(".room-head h1").wai
   await p.locator(".spot-row").nth(1).waitFor({ timeout: 30000 }); });
 await step("chat: send a message", async () => {
   await p.getByRole("button", { name: /^Chat/ }).click();
-  await p.getByPlaceholder("Say something").fill("hello from the ui test");
+  await p.getByPlaceholder("Say something").fill(`hello from the ui test ${RUN}`);
   await p.getByRole("button", { name: "Send" }).click();
-  await p.getByText("hello from the ui test").waitFor({ timeout: 20000 });
+  await p.getByText(`hello from the ui test ${RUN}`).waitFor({ timeout: 20000 });
 });
 await shot("chat");
 await step("chat: react", async () => {
