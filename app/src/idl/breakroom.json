@@ -2673,6 +2673,78 @@
       "args": []
     },
     {
+      "name": "rip",
+      "docs": [
+        "A spot's owner rips their own pack open (inside the window before the crank does it)."
+      ],
+      "discriminator": [
+        222,
+        22,
+        191,
+        108,
+        79,
+        230,
+        48,
+        157
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "profile",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "profile.owner",
+                "account": "Profile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "brk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  101,
+                  97,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "brk"
+              }
+            ]
+          }
+        },
+        {
+          "name": "deck"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "seal_break",
       "discriminator": [
         248,
@@ -4131,6 +4203,11 @@
       "code": 6039,
       "name": "PoolEmpty",
       "msg": "The buyback pool is empty"
+    },
+    {
+      "code": 6040,
+      "name": "NotYourRip",
+      "msg": "It isn't your pack's turn to be ripped"
     }
   ],
   "types": [
@@ -4519,7 +4596,10 @@
             "type": "u8"
           },
           {
-            "name": "_pad1",
+            "name": "rip_armed",
+            "docs": [
+              "Packs mode: 1 while the next pack is up and its owner may rip it (until next_reveal_ms)."
+            ],
             "type": "u8"
           },
           {

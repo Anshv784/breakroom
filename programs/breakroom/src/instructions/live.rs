@@ -117,7 +117,7 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
             task_id: task_id as i64,
             execution_interval_millis: reveal_ms as i64,
             // the shuffle wait + intro, then one run per card, with slack for late runs
-            iterations: n_cards as i64 + MAX_SPOTS as i64 + 40,
+            iterations: n_cards as i64 + MAX_SPOTS as i64 * (1 + (RIP_WINDOW_MS / 2_000)) + 40,
             instructions: vec![reveal_ix, finish_ix],
         },
     }
@@ -314,6 +314,26 @@ pub fn handle_reveal(ctx: Context<Reveal>) -> Result<()> {
         b.next_reveal_ms = now + gap;
         return Ok(());
     }
+    // packs: before the first card of each pack, give its owner a window to rip it themselves
+    if !b.teams() && k % b.per_spot as usize == 0 && b.rip_armed == 0 {
+        b.rip_armed = 1;
+        b.next_reveal_ms = now + RIP_WINDOW_MS;
+        let spot = b.spot_of(b.position_at(k));
+        b.ask[spot] = 0;
+        b.bid[spot] = 0;
+        b.bidder[spot] = Pubkey::default();
+        b.reserved[spot] = Pubkey::default();
+        return Ok(());
+    }
+    reveal_next(&mut b, deck, now);
+    Ok(())
+}
+
+/// Put the card at the cursor face up (shared by the crank and an owner's rip).
+fn reveal_next(b: &mut Break, deck: &Deck, now: i64) {
+    let k = b.cursor as usize;
+    let total = b.cards_total();
+    b.rip_armed = 0;
     let pos = b.position_at(k);
     b.revealed[pos] = deck.order[pos] + 1;
     // a pack starting to open takes its spot off the market
@@ -333,7 +353,40 @@ pub fn handle_reveal(ctx: Context<Reveal>) -> Result<()> {
         b.status = ST_ENDED;
         b.ended_at = now / 1000;
     }
+}
+
+/// The spot's owner rips their own pack: inside the window the crank opened for it, the owner
+/// (or their session key) reveals the first card now. Only the timing is theirs; which card it
+/// is was fixed by the VRF shuffle sealed in the Deck.
+pub fn handle_rip(ctx: Context<Rip>) -> Result<()> {
+    let now = now_ms()?;
+    let p = &ctx.accounts.profile;
+    require!(p.acts(&ctx.accounts.signer.key()), BreakError::NotYourProfile);
+    let mut b = ctx.accounts.brk.load_mut()?;
+    require!(b.status == ST_LIVE && !b.teams(), BreakError::WrongStage);
+    let k = b.cursor as usize;
+    require!(b.rip_armed == 1 && k < b.cards_total() && k % b.per_spot as usize == 0, BreakError::NotYourRip);
+    let spot = b.spot_of(b.position_at(k));
+    require!(b.spot_owner[spot] == p.owner, BreakError::NotYourRip);
+    let id = b.break_id;
+    let d = ctx.accounts.deck.try_borrow_data()?;
+    require!(d.len() >= DECK_LEN, BreakError::BadAccount);
+    let deck: &Deck = bytemuck::from_bytes(&d[..DECK_LEN]);
+    require!(deck.magic == DECK_MAGIC && deck.break_id == id && deck.seeded == 1, BreakError::NotShuffled);
+    reveal_next(&mut b, deck, now);
     Ok(())
+}
+
+#[derive(Accounts)]
+pub struct Rip<'info> {
+    pub signer: Signer<'info>,
+    #[account(seeds = [PROFILE_SEED, profile.owner.as_ref()], bump = profile.bump)]
+    pub profile: Account<'info, Profile>,
+    #[account(mut, seeds = [BREAK_SEED, &brk.load()?.break_id.to_le_bytes()], bump)]
+    pub brk: AccountLoader<'info, Break>,
+    /// CHECK: the sealed Deck, verified by magic + break id
+    #[account(owner = crate::ID)]
+    pub deck: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]

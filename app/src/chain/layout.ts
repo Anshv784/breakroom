@@ -93,6 +93,8 @@ export interface BreakState {
   teamsOut: number;
   /** 0 = fixed price, 1 = sealed-bid auction running, 2 = auction closed */
   sale: number;
+  /** packs: 1 while the next pack is up for its owner to rip (until nextRevealMs) */
+  ripArmed: number;
   auctionSecs: number;
   auctionEnd: number;
   /** team mode: element bitmask per spot (0 = not revealed) */
@@ -165,6 +167,7 @@ export function decodeBreak(data: Uint8Array): BreakState {
     mode: r.u8(o.mode),
     teamsOut: r.u8(o.teams_out),
     sale: r.u8(o.sale),
+    ripArmed: r.u8(o.rip_armed),
     auctionSecs: r.u32(o.auction_secs),
     auctionEnd: r.i64(o.auction_end),
     spotTeam: Array.from(r.bytes(o.spot_team, nSpots)),

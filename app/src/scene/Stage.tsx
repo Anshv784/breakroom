@@ -26,6 +26,8 @@ export interface StageProps {
   onSelect: (spot: number) => void;
   me?: string;
   onPull?: (p: { pos: number; card: number; spot: number }) => void;
+  /** the pack that's up for its owner to rip right now (packs mode), if any */
+  rip?: { spot: number; mine: boolean; onRip: () => void } | null;
 }
 
 const SHOW = new THREE.Vector3(0, 1.22, 1.55);
@@ -54,7 +56,7 @@ function fanPlace(s: number, n: number, k: number, per: number) {
   return { pos: base, rot: new THREE.Euler(-0.3, yaw, -off * 0.06), scale: new THREE.Vector3(sc, sc, sc) };
 }
 
-function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean; fromVault?: boolean }) {
+function RevealedCard({ face, place, seenAt, isLatest, big, fromVault, delay = 0 }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean; fromVault?: boolean; delay?: number }) {
   const g = useRef<THREE.Group>(null);
   const { camera } = useThree();
   const [glow, setGlow] = useState(big && isLatest ? 1 : 0);
@@ -71,8 +73,9 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
   useFrame((_, dt) => {
     const o = g.current;
     if (!o) return;
-    const age = (performance.now() - seenAt) / 1000;
+    const age = (performance.now() - seenAt) / 1000 - delay;
     const hold = big ? 2.6 : 1.7;
+    o.visible = seenAt === 0 || age >= 0;
     if (age < hold && seenAt > 0) {
       if (fromVault) {
         // team mode: lifted out of the vault, flipped toward the room
@@ -166,7 +169,7 @@ function CameraRig({ focus }: { focus: boolean }) {
   return null;
 }
 
-export default function Stage({ b, cards, names, selected, onSelect, me, onPull, epoch = 0 }: StageProps & { epoch?: number }) {
+export default function Stage({ b, cards, names, selected, onSelect, me, onPull, rip, epoch = 0 }: StageProps & { epoch?: number }) {
   const per = b.perSpot;
   // first time this client saw each position revealed (0 = was already out when we arrived)
   const seen = useRef<Map<number, number>>(new Map());
@@ -245,6 +248,10 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
                 art={art}
                 home={home}
                 opening={isOpening}
+                torn={outCount > 0}
+                armed={rip?.spot === s}
+                canRip={!!rip?.mine && rip.spot === s}
+                onRip={rip?.onRip}
                 gone={done}
                 selected={selected === s}
                 shuffling={b.status === ST.SHUFFLING}
@@ -283,6 +290,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
               seenAt={seen.current.get(pos) ?? 0}
               isLatest={latest === pos}
               big={face.tier >= 3}
+              delay={!teams && pos % per === 0 ? 0.62 : 0}
             />
           );
         })}
@@ -302,13 +310,22 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
  *  glide to the centre -> settle -> a short anticipation shake -> the top peels off (rip sound)
  *  -> cards rise out of it (RevealedCard) -> once its cards are out the empty pack drops and fades.
  */
-function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; gone: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
+/**
+ * One spot's pack. Opening choreography (frame-rate independent, no flashes):
+ *  glide to the centre -> settle with a little shake -> wait while it's up for its owner ->
+ *  the owner drags across the seal to rip it (or, for everyone else, it rips as the first card
+ *  arrives) -> cards rise out of it -> once its cards are out the empty pack drops and fades.
+ */
+function PackSlot({ n, s, art, home, opening, torn, armed, canRip, onRip, gone, selected, shuffling, onClick }: { n: number; s: number; art: number; home: { pos: THREE.Vector3; yaw: number }; opening: boolean; torn: boolean; armed: boolean; canRip: boolean; onRip?: () => void; gone: boolean; selected: boolean; shuffling: boolean; onClick: () => void }) {
   const g = useRef<THREE.Group>(null);
-  const tear = useRef(gone ? 1 : 0);
+  const tear = useRef(gone || torn ? 1 : 0);
   const hovered = useRef(false);
   const openedAt = useRef<number | null>(null);
   const goneAt = useRef<number | null>(gone ? -1 : null); // -1: already gone when we arrived
-  const ripped = useRef(false);
+  const drag = useRef<{ x0: number; k: number } | null>(null);
+  const finishing = useRef(gone || torn); // tear is running to the end on its own
+  const sent = useRef(false);
+  const ripSound = useRef(gone || torn);
   const center = useMemo(() => new THREE.Vector3(0, 0.82, -0.45), []);
   const want = useMemo(() => new THREE.Vector3(), []);
   // start at home once; after that only useFrame moves it (a position prop would snap it back on every re-render)
@@ -321,6 +338,15 @@ function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick
   useEffect(() => {
     if (gone && goneAt.current === null) goneAt.current = performance.now() + 650; // let the last card clear the pack first
   }, [gone]);
+  useEffect(() => {
+    if (torn) finishing.current = true; // the card is out: finish the tear (fast) if nobody dragged it
+  }, [torn]);
+  const startRipSound = () => {
+    if (!ripSound.current) {
+      ripSound.current = true;
+      sfx.rip();
+    }
+  };
   useFrame(({ clock }, dt) => {
     const o = g.current;
     if (!o) return;
@@ -352,18 +378,23 @@ function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick
     const h = hovered.current && !opening && !shuffling;
     o.rotation.y = THREE.MathUtils.lerp(o.rotation.y, yaw * (h ? 0.6 : 1), damp(6, dt));
     o.rotation.x = THREE.MathUtils.lerp(o.rotation.x, opening ? -0.05 : h ? -0.04 : -0.18, damp(6, dt));
-    // anticipation: a small, quick shake once it has settled in the centre
-    const shake = opening && since > 0.45 && since < 0.7 ? Math.sin(since * 70) * 0.03 * (1 - (since - 0.45) / 0.25) : 0;
-    o.rotation.z = THREE.MathUtils.lerp(o.rotation.z, shake, damp(30, dt));
+    // a short shake as it settles in the centre; while it waits for its owner, a small nudge now and then
+    let shake = opening && since > 0.45 && since < 0.7 ? Math.sin(since * 70) * 0.03 * (1 - (since - 0.45) / 0.25) : 0;
+    if (armed && !drag.current && !finishing.current && since > 1.2) {
+      const ph = (since % 1.8) / 1.8;
+      if (ph < 0.18) shake += Math.sin(ph * 120) * 0.012 * (1 - ph / 0.18);
+    }
+    o.rotation.z = THREE.MathUtils.lerp(o.rotation.z, shake + (drag.current ? -drag.current.k * 0.06 : 0), damp(30, dt));
     const base = opening ? 0.95 : n > 10 ? 0.5 : n > 5 ? 0.62 : 0.8;
-    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, base * (h ? 1.04 : 1), damp(opening ? 4 : 7, dt)));
-    // the rip: starts right after the shake, takes ~0.7 s
-    if (opening && since > 0.7) {
-      if (!ripped.current) {
-        ripped.current = true;
-        sfx.rip();
-      }
-      tear.current = Math.min(1, (since - 0.7) / 0.95);
+    o.scale.setScalar(THREE.MathUtils.lerp(o.scale.x, base * (h ? 1.04 : 1) * (canRip && !finishing.current ? 1.04 : 1), damp(opening ? 4 : 7, dt)));
+    // the tear: dragged by the owner, finished on its own, or springing back if let go early
+    if (finishing.current) {
+      if (tear.current < 1) startRipSound();
+      tear.current = Math.min(1, tear.current + dt / 0.6);
+    } else if (drag.current) {
+      tear.current = THREE.MathUtils.lerp(tear.current, drag.current.k * 0.62, damp(20, dt));
+    } else if (tear.current > 0) {
+      tear.current = Math.max(0, tear.current - dt * 0.8);
     }
   });
   return (
@@ -371,12 +402,35 @@ function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick
       ref={g}
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        if (!canRip) onClick();
+      }}
+      onPointerDown={(e) => {
+        if (!canRip || finishing.current) return;
+        e.stopPropagation();
+        (e.target as any).setPointerCapture?.(e.pointerId);
+        drag.current = { x0: e.pointer.x, k: 0 };
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        d.k = THREE.MathUtils.clamp((e.pointer.x - d.x0) / 0.32, 0, 1);
+        if (d.k > 0.05) startRipSound();
+        if (d.k >= 1 && !sent.current) {
+          // all the way across: it's ripped
+          sent.current = true;
+          finishing.current = true;
+          drag.current = null;
+          onRip?.();
+        }
+      }}
+      onPointerUp={(e) => {
+        (e.target as any).releasePointerCapture?.(e.pointerId);
+        drag.current = null;
       }}
       onPointerOver={(e) => {
         e.stopPropagation();
         hovered.current = true;
-        document.body.style.cursor = "pointer";
+        document.body.style.cursor = canRip ? "grab" : "pointer";
       }}
       onPointerOut={() => {
         hovered.current = false;

@@ -82,4 +82,6 @@ pub enum BreakError {
     TooLong,
     #[msg("The buyback pool is empty")]
     PoolEmpty,
+    #[msg("It isn't your pack's turn to be ripped")]
+    NotYourRip,
 }

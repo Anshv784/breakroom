@@ -137,6 +137,11 @@ pub mod breakroom {
         instructions::live::handle_finish(ctx)
     }
 
+    /// A spot's owner rips their own pack open (inside the window before the crank does it).
+    pub fn rip(ctx: Context<Rip>) -> Result<()> {
+        instructions::live::handle_rip(ctx)
+    }
+
     pub fn rearm_settle(ctx: Context<Reveal>) -> Result<()> {
         instructions::live::handle_rearm_settle(ctx)
     }

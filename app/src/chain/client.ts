@@ -703,6 +703,11 @@ export class BreakroomClient {
     return ix("close_auction", {}, { brk: breakPda(id), bids: bidsPda(id), bids_permission: permissionPdaFromAccount(bidsPda(id)) });
   }
 
+  /** Rip your own pack: inside the window the crank opens before each pack, its owner reveals it. */
+  ripIx(id: bigint, signer = this.session.publicKey) {
+    return ix("rip", {}, { signer, profile: profilePda(this.me), brk: breakPda(id), deck: deckPda(id) });
+  }
+
   /** kind 0 = text, 1 = reaction (text = one emoji). */
   sendChatIx(id: bigint, text: string, kind = 0, signer = this.session.publicKey) {
     const bytes = Buffer.from(new TextEncoder().encode(text).slice(0, 86));

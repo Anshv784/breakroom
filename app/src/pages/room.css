@@ -319,3 +319,52 @@
     bottom: 18px;
   }
 }
+
+/* rip your own pack */
+.rip-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px 12px 14px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.78);
+  border: 1px solid var(--line-2);
+  backdrop-filter: blur(10px);
+  color: var(--text-2);
+  animation: bannerIn 0.4s var(--ease);
+  white-space: nowrap;
+}
+.rip-banner b {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+}
+.rip-banner span {
+  font-size: 12.5px;
+}
+.rip-banner .rip-ring {
+  color: var(--foil-b);
+  flex: none;
+}
+.rip-banner.mine {
+  border-color: rgba(255, 210, 122, 0.55);
+  box-shadow: 0 0 50px -14px rgba(255, 210, 122, 0.7);
+}
+.rip-banner.mine .rip-ring {
+  color: var(--foil-c);
+}
+.rip-hint {
+  font-size: 20px !important;
+  color: var(--foil-c);
+  animation: ripnudge 1.2s ease-in-out infinite;
+}
+@keyframes ripnudge {
+  50% {
+    transform: translateX(6px);
+  }
+}

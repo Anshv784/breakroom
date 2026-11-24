@@ -40,6 +40,30 @@ function useChat(id: bigint) {
   return msgs;
 }
 
+/** "Your pack is up": drag across the seal before the clock runs out (the crank rips it after). */
+function RipBanner({ mine, who, spot, deadline }: { mine: boolean; who: string; spot: number; deadline: number }) {
+  const now = useNow(200);
+  const total = 8000;
+  const left = Math.max(0, deadline - now);
+  const k = Math.min(1, left / total);
+  return (
+    <div className={`rip-banner ${mine ? "mine" : ""}`}>
+      <svg width="38" height="38" viewBox="0 0 38 38" className="rip-ring">
+        <circle cx="19" cy="19" r="16" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="3" />
+        <circle cx="19" cy="19" r="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray={100.5} strokeDashoffset={100.5 * (1 - k)} transform="rotate(-90 19 19)" />
+        <text x="19" y="23" textAnchor="middle" fontSize="11" fill="currentColor" fontFamily="JetBrains Mono, monospace">
+          {Math.ceil(left / 1000)}
+        </text>
+      </svg>
+      <div>
+        <b>{mine ? "Your pack is up" : `${who || "Spot #" + (spot + 1)}'s pack is up`}</b>
+        <span>{mine ? "Drag across the top seal to rip it open" : "Waiting for them to rip it… it opens itself when the timer ends"}</span>
+      </div>
+      {mine && <span className="rip-hint">⟶</span>}
+    </div>
+  );
+}
+
 export const REACTIONS = ["🔥", "😱", "💎", "👏", "🙏", "😭"];
 
 export default function Room({ id }: { id: bigint }) {
@@ -86,6 +110,14 @@ export default function Room({ id }: { id: bigint }) {
   if (error) return <div className="wrap" style={{ padding: 64 }}><div className="panel" style={{ padding: 32 }}>{error}. <a href="#/breaks" className="muted">Back to breaks</a></div></div>;
   if (!b || !live) return <div className="room"><div className="room-stage skeleton" style={{ borderRadius: 0 }} /><aside className="room-side" /></div>;
 
+  const ripSpot = replay === null && live && live.mode !== 1 && live.status === ST.LIVE && live.ripArmed === 1 ? live.openOrder[Math.floor(live.cursor / live.perSpot)] : -1;
+  const ripOwner = ripSpot >= 0 ? live!.spotOwner[ripSpot] : null;
+  const ripMine = !!ripOwner && ripOwner.toBase58() === me;
+  const onRip = () => {
+    const c = useApp.getState().client;
+    if (!c) return;
+    useApp.getState().run("Rip", () => c.sendSession([c.ripIx(id)]));
+  };
   const pulled = pull && cards[pull.card];
   const pulledMine = pulled && b.spotOwner[pull!.spot]?.toBase58() === me;
   return (
@@ -104,10 +136,12 @@ export default function Room({ id }: { id: bigint }) {
             }}
             me={me}
             onPull={(p) => setPull({ card: p.card, spot: p.spot, at: Date.now() })}
+            rip={ripSpot >= 0 ? { spot: ripSpot, mine: ripMine, onRip } : null}
           />
         </Suspense>
         <RoomHeader b={live} names={names} rep={rep} />
         <RevealClock b={b} replaying={replay !== null} />
+        {ripSpot >= 0 && <RipBanner key={`${live!.cursor}`} mine={ripMine} who={ripOwner ? names(ripOwner) : ""} spot={ripSpot} deadline={live!.nextRevealMs} />}
         <Reactions msgs={chat} />
         {teamBanner && Date.now() - teamBanner.at < 3000 && (
           <div className="pull-banner" key={teamBanner.at} style={{ ["--tc" as any]: ELEMENT_COLORS[Math.log2(teamBanner.mask & -teamBanner.mask)] }}>

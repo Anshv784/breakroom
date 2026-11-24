@@ -63,6 +63,8 @@ pub const MAX_REVEAL_MS: u32 = 15_000;
 pub const SHUFFLE_TIMEOUT_SECS: i64 = 45;
 /// Pause between the shuffle landing and the first card, so everyone's camera is on the table.
 pub const INTRO_MS: i64 = 4_000;
+/// How long a spot's owner has to rip their own pack before the crank opens it for them.
+pub const RIP_WINDOW_MS: i64 = 8_000;
 /// Escrow index of the post-commit settle action.
 pub const ACTION_ESCROW_INDEX: u8 = 255;
 /// Anyone may start a fully sold break this long after the last spot sold, so a host can't

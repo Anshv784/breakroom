@@ -46,7 +46,7 @@ function poly(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   ctx.closePath();
 }
 
-function glyph(ctx: CanvasRenderingContext2D, kind: string, cx: number, cy: number, r: number, color: string, R: () => number) {
+export function glyph(ctx: CanvasRenderingContext2D, kind: string, cx: number, cy: number, r: number, color: string, R: () => number) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;

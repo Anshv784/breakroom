@@ -159,7 +159,8 @@ pub struct Break {
     pub teams_out: u8,
     /// Sale: 0 = fixed price, 1 = sealed-bid auction; 2 = auction closed.
     pub sale: u8,
-    pub _pad1: u8,
+    /// Packs mode: 1 while the next pack is up and its owner may rip it (until next_reveal_ms).
+    pub rip_armed: u8,
     pub auction_secs: u32,
     pub _pad: [u8; 4],
 }
@@ -200,8 +201,10 @@ impl Break {
             ST_LIVE if self.teams() => self.spot_team[spot] != 0,
             ST_LIVE => {
                 let per = self.per_spot as usize;
-                // pack i of the opening has started once its first card is out
-                (0..self.n_spots as usize).any(|i| i * per < self.cursor as usize && self.open_order[i] as usize == spot)
+                // pack i of the opening has started once its first card is out, or is up for its
+                // owner to rip (no trading the spot out from under them mid-rip)
+                let up = if self.rip_armed == 1 { self.cursor as usize / per + 1 } else { 0 };
+                (0..self.n_spots as usize).any(|i| (i * per < self.cursor as usize || i < up) && self.open_order[i] as usize == spot)
             }
             _ => true,
         }
@@ -371,7 +374,7 @@ mod layout_tests {
                 s
             }};
         }
-        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent, mode, teams_out, sale, auction_secs, auction_end, spot_team, bid_count, card_elem);
+        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent, mode, teams_out, sale, rip_armed, auction_secs, auction_end, spot_team, bid_count, card_elem);
         let trade = offs!(Trade; price, ts, buyer, seller, spot, kind);
         let receipt = offs!(Receipt; break_id, host_paid, settled_at, host, cards, recipient, claimed, n_cards, settled, bump);
         let deck = offs!(Deck; magic, seeded, break_id, randomness, order, spot_elems);
