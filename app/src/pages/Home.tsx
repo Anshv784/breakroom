@@ -159,11 +159,25 @@ function RipShowcase() {
           </a>
         </div>
         <div className="ripshow-art" aria-hidden>
-          <div className="rs-pack">
-            <div className="rs-body" style={{ backgroundImage: `url(${pack})` }} />
-            <div className="rs-top" style={{ backgroundImage: `url(${pack})` }} />
-            <div className="rs-card" style={{ backgroundImage: `url(${card})` }} />
-            <div className="rs-hand">☝</div>
+          <div className="rs-stage">
+            <div className="rs-halo" />
+            <div className="rs-pack">
+              <div className="rs-card" style={{ backgroundImage: `url(${card})` }}>
+                <span className="rs-card-sheen" />
+              </div>
+              <div className="rs-light" />
+              <div className="rs-body" style={{ backgroundImage: `url(${pack})` }}>
+                <span className="rs-foil" />
+              </div>
+              <div className="rs-top" style={{ backgroundImage: `url(${pack})` }} />
+              <div className="rs-tearline" />
+              <div className="rs-swipe" />
+            </div>
+            <div className="rs-sparks">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <i key={i} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
