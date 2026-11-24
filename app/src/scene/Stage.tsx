@@ -3,7 +3,7 @@
 //  * the Deck in the middle: the TEE-sealed shuffle (locked -> shuffling -> live -> verified)
 //  * each card the crank reveals flies out of its pack, flips in the showcase, then settles face up
 //    in front of the spot that won it. Big pulls get a light burst.
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { AdaptiveDpr, Environment, Lightformer, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
@@ -40,14 +40,18 @@ function spotHome(s: number, n: number) {
   return { pos: new THREE.Vector3(Math.sin(a) * r * (n > 5 ? 0.92 : 1.1), 0.42, -Math.cos(a) * r + 0.7), yaw: -a * 0.8 };
 }
 
-/** Where card k of a spot stands once it's out: a fan in the spot's place, facing the room. */
+/** Where card k of a spot stands once it's out: a small overlapping hand that fits inside the spot's
+ *  own slice of the arc (never touching the neighbours), every card on its own depth so none z-fight. */
 function fanPlace(s: number, n: number, k: number, per: number) {
   const { pos, yaw } = spotHome(s, n);
+  const gap = n > 1 ? spotHome(0, n).pos.distanceTo(spotHome(1, n).pos) : 1.2;
+  const avail = gap * 0.86;
+  const lap = 0.34; // each extra card shows a third of the one under it
+  const sc = Math.min(0.9, avail / (0.63 * (1 + lap * (per - 1))));
+  const step = 0.63 * sc * lap;
   const off = per > 1 ? k - (per - 1) / 2 : 0;
-  const width = Math.min(0.24, (n > 5 ? 0.5 : 0.8) / Math.max(1, per));
-  const base = new THREE.Vector3(pos.x + Math.cos(yaw) * off * width, 0.38 + Math.abs(off) * -0.015, pos.z - Math.sin(yaw) * off * width + k * 0.004);
-  const sc = n > 10 ? 0.55 : n > 5 ? 0.68 : 0.9;
-  return { pos: base, rot: new THREE.Euler(-0.32, yaw, -off * 0.09), scale: new THREE.Vector3(sc, sc, sc) };
+  const base = new THREE.Vector3(pos.x + Math.cos(yaw) * off * step, 0.36 + Math.abs(off) * -0.01, pos.z - Math.sin(yaw) * off * step + k * 0.018 + (s % 2) * 0.012);
+  return { pos: base, rot: new THREE.Euler(-0.3, yaw, -off * 0.06), scale: new THREE.Vector3(sc, sc, sc) };
 }
 
 function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face: CardFace; place: { pos: THREE.Vector3; rot: THREE.Euler; scale: THREE.Vector3 }; seenAt: number; isLatest: boolean; big: boolean; fromVault?: boolean }) {
@@ -61,24 +65,43 @@ function RevealedCard({ face, place, seenAt, isLatest, big, fromVault }: { face:
   }, [big, isLatest]);
   const target = useMemo(() => new THREE.Object3D(), []);
   const from = useMemo(() => (fromVault ? new THREE.Vector3(0, 0.35, 1.05) : new THREE.Vector3(0, 1.02, -0.42)), [fromVault]);
+  const inPack = useMemo(() => new THREE.Vector3(0, 0.8, -0.47), []);
+  const outPack = useMemo(() => new THREE.Vector3(0, 1.42, -0.42), []);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, dt) => {
     const o = g.current;
     if (!o) return;
     const age = (performance.now() - seenAt) / 1000;
-    const hold = big ? 2.2 : 1.35;
+    const hold = big ? 2.6 : 1.7;
     if (age < hold && seenAt > 0) {
-      // rise out of the pack, flip toward the camera
-      const t = easeOut(age / 0.55);
-      o.position.lerpVectors(from, SHOW, t);
+      if (fromVault) {
+        // team mode: lifted out of the vault, flipped toward the room
+        const t = easeOut(age / 0.55);
+        o.position.lerpVectors(from, SHOW, t);
+        target.position.copy(o.position);
+        target.lookAt(camera.position);
+        target.rotateY(Math.PI * (1 - easeOut((age - 0.1) / 0.5)));
+        o.quaternion.slerp(target.quaternion, damp(14, dt));
+        o.scale.setScalar((big ? 1.3 : 1.0) * (0.6 + 0.4 * t));
+        return;
+      }
+      // 1) drawn up out of the torn pack, face down (its back toward the room)
+      // 2) lifted into the showcase while it turns over
+      const a = Math.min(1, age / 0.45);
+      const ea = a * a * (3 - 2 * a);
+      const bT = Math.max(0, Math.min(1, (age - 0.42) / 0.6));
+      const eb = bT < 0.5 ? 4 * bT * bT * bT : 1 - Math.pow(-2 * bT + 2, 3) / 2;
+      tmp.lerpVectors(inPack, outPack, ea);
+      o.position.lerpVectors(tmp, SHOW, eb);
+      o.position.y += Math.sin(eb * Math.PI) * 0.12; // a small arc, like a hand lifting it
       target.position.copy(o.position);
       target.lookAt(camera.position);
-      const flip = Math.PI * (1 - easeOut((age - 0.1) / 0.5));
-      target.rotateY(flip);
-      o.quaternion.slerp(target.quaternion, damp(14, dt));
-      const s = (big ? 1.3 : 1.0) * (0.6 + 0.4 * t);
-      o.scale.setScalar(s);
+      target.rotateY(Math.PI * (1 - eb));
+      target.rotateZ(Math.sin(eb * Math.PI) * 0.12);
+      o.quaternion.slerp(target.quaternion, damp(a < 1 ? 30 : 16, dt));
+      o.scale.setScalar(0.88 + ((big ? 1.3 : 1.0) - 0.88) * eb);
     } else {
-      const f = seenAt > 0 ? damp(6, dt) : 1;
+      const f = seenAt > 0 ? damp(5, dt) : 1;
       o.position.lerp(place.pos, f);
       target.rotation.copy(place.rot);
       o.quaternion.slerp(target.quaternion, f);
@@ -133,10 +156,10 @@ function CameraRig({ focus }: { focus: boolean }) {
   const want = useMemo(() => new THREE.Vector3(), []);
   const lookWant = useMemo(() => new THREE.Vector3(), []);
   useFrame((_, dt) => {
-    if (focus) want.set(pointer.x * 0.18, 1.7 * k, 4.4 * k);
+    if (focus) want.set(pointer.x * 0.04, 1.65 * k, 4.2 * k);
     else want.set(pointer.x * 0.2, 1.5 * k + pointer.y * 0.05, 3.75 * k);
     camera.position.lerp(want, damp(focus ? 2.2 : 1.6, dt));
-    lookWant.set(...((focus ? [0, 0.95, 0.2] : [0, 0.5, -0.75]) as [number, number, number]));
+    lookWant.set(...((focus ? [0, 1.0, -0.1] : [0, 0.5, -0.75]) as [number, number, number]));
     look.lerp(lookWant, damp(2.4, dt));
     camera.lookAt(look);
   });
@@ -215,7 +238,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
           const mine = !!owner && owner.toBase58() === me;
           const art = (s * 3) % 8; // fixed per spot, so the print never swaps mid-rip
           return (
-            <group key={s}>
+            <group key={`spot-${s}`}>
               <PackSlot
                 n={b.nSpots}
                 s={s}
@@ -253,7 +276,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
           const s = pl.spot;
           return (
             <RevealedCard
-              key={pos}
+              key={`card-${pos}`}
               face={face}
               place={fanPlace(s, b.nSpots, pl.k, Math.max(1, counts[s]))}
               fromVault={teams}
@@ -288,6 +311,10 @@ function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick
   const ripped = useRef(false);
   const center = useMemo(() => new THREE.Vector3(0, 0.82, -0.45), []);
   const want = useMemo(() => new THREE.Vector3(), []);
+  // start at home once; after that only useFrame moves it (a position prop would snap it back on every re-render)
+  useLayoutEffect(() => {
+    g.current?.position.copy(home.pos);
+  }, []);
   useEffect(() => {
     if (opening && openedAt.current === null) openedAt.current = performance.now();
   }, [opening]);
@@ -336,13 +363,12 @@ function PackSlot({ n, s, art, home, opening, gone, selected, shuffling, onClick
         ripped.current = true;
         sfx.rip();
       }
-      tear.current = Math.min(1, (since - 0.7) / 0.55);
+      tear.current = Math.min(1, (since - 0.7) / 0.95);
     }
   });
   return (
     <group
       ref={g}
-      position={home.pos}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

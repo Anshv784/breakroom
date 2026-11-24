@@ -67,7 +67,7 @@ export default function Room({ id }: { id: bigint }) {
       const t = setTimeout(() => setReplay(null), 2500);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setReplay(replay + 1), Math.max(900, live.revealMs * 0.6));
+    const t = setTimeout(() => setReplay(replay + 1), Math.max(1700, live.revealMs * 0.75));
     return () => clearTimeout(t);
   }, [replay, live?.breakId]);
 

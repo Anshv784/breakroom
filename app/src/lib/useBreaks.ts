@@ -49,14 +49,20 @@ export function useBreak(id: bigint) {
   const [b, setB] = useState<BreakState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const last = useRef<string>("");
+  const latest = useRef<BreakState | null>(null);
   useEffect(() => {
     let alive = true;
+    latest.current = null;
     let sub: number | null = null;
     let conn: Awaited<ReturnType<BreakroomClient["teeSession"]>> | null = null;
     last.current = "";
     const apply = (data: Uint8Array) => {
       if (!alive) return;
       const next = decodeBreak(data);
+      // the subscription and the poll can land out of order: never step a viewer backwards
+      const cur = latest.current;
+      if (cur && (next.status < cur.status || (next.status === cur.status && (next.cursor < cur.cursor || next.teamsOut < cur.teamsOut || next.nTrades < cur.nTrades || next.sold < cur.sold)))) return;
+      latest.current = next;
       // skip re-renders when nothing a viewer can see has changed
       const sig = `${next.status}|${next.cursor}|${next.nTrades}|${next.sold}|${next.ask.join(",")}|${next.bid.join(",")}|${next.spotOwner.map((x) => x?.toBase58() ?? "").join(",")}|${next.reserveUntil.join(",")}|${next.nextRevealMs}`;
       if (sig === last.current) return;
@@ -74,7 +80,7 @@ export function useBreak(id: bigint) {
         }
         const info = await (await c.teeSession()).getAccountInfo(breakPda(id)).catch(() => null);
         if (info) apply(info.data);
-        else if (alive) setB(fb);
+        else if (alive && !latest.current) setB(fb);
       } catch (e: any) {
         console.warn("break poll", e?.message);
       }

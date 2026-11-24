@@ -11,10 +11,40 @@ import { TIER_COLORS } from "../lib/art";
 export const CW = 0.63; // card width (m) — poker-size proportions
 export const CH = 0.88;
 
+const R = 0.034; // corner radius: real cards have rounded corners
+const T = 0.006; // card stock thickness
+
+function roundedShape(w: number, h: number, r: number) {
+  const x = -w / 2, y = -h / 2;
+  const sh = new THREE.Shape();
+  sh.moveTo(x + r, y);
+  sh.lineTo(x + w - r, y);
+  sh.quadraticCurveTo(x + w, y, x + w, y + r);
+  sh.lineTo(x + w, y + h - r);
+  sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  sh.lineTo(x + r, y + h);
+  sh.quadraticCurveTo(x, y + h, x, y + h - r);
+  sh.lineTo(x, y + r);
+  sh.quadraticCurveTo(x, y, x + r, y);
+  return sh;
+}
+/** A rounded-rect face with 0..1 UVs across the whole card (ShapeGeometry's UVs are in shape units). */
+function faceGeometry() {
+  const g = new THREE.ShapeGeometry(roundedShape(CW, CH, R), 8);
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + CW / 2) / CW, (p.getY(i) + CH / 2) / CH);
+  return g;
+}
+const FACE_GEO = faceGeometry();
+const EDGE_GEO = new THREE.ExtrudeGeometry(roundedShape(CW, CH, R), { depth: T, bevelEnabled: false, curveSegments: 8 });
+EDGE_GEO.translate(0, 0, -T / 2);
+const EDGE_MAT = new THREE.MeshStandardMaterial({ color: "#d9d2e0", roughness: 0.75, metalness: 0 });
+
 export function Card3D({ face, glow = 0, dim = false, sweepFrom = 0, ...props }: { face: CardFace; glow?: number; dim?: boolean; sweepFrom?: number } & JSX.IntrinsicElements["group"]) {
   const tex = useMemo(() => faceTexture(face), [face.name, face.tier, face.grade, face.art, face.value]);
   const mat = useMemo(() => holoMaterial(tex, face.tier), [tex, face.tier]);
-  const back = useMemo(() => new THREE.MeshStandardMaterial({ map: backTexture(), roughness: 0.55, metalness: 0.1 }), []);
+  const back = useMemo(() => new THREE.MeshStandardMaterial({ map: backTexture(), roughness: 0.5, metalness: 0.1 }), []);
   useEffect(() => () => mat.dispose(), [mat]);
   useFrame((_, dt) => {
     mat.uniforms.time.value += dt;
@@ -25,16 +55,9 @@ export function Card3D({ face, glow = 0, dim = false, sweepFrom = 0, ...props }:
   });
   return (
     <group {...props}>
-      <mesh material={mat} position={[0, 0, 0.0021]}>
-        <planeGeometry args={[CW, CH]} />
-      </mesh>
-      <mesh material={back} position={[0, 0, -0.0021]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[CW, CH]} />
-      </mesh>
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[CW, CH, 0.004]} />
-        <meshStandardMaterial color="#e9e3ef" roughness={0.8} />
-      </mesh>
+      <mesh geometry={FACE_GEO} material={mat} position={[0, 0, T / 2 + 0.0004]} />
+      <mesh geometry={FACE_GEO} material={back} position={[0, 0, -T / 2 - 0.0004]} rotation={[0, Math.PI, 0]} />
+      <mesh geometry={EDGE_GEO} material={EDGE_MAT} />
     </group>
   );
 }

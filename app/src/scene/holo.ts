@@ -47,11 +47,7 @@ const frag = /* glsl */ `
     float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));
     vec3 col = base.rgb;
     col = mix(col, col * 0.7 + foil * (0.18 + lum * 0.8), strength * mask);
-    // sparkle grain
-    vec2 g = floor(vUv * vec2(160.0, 224.0));
-    float sp = hash(g);
-    float tw = pow(max(0.0, sin(sp * 40.0 + facing * 12.0)), 24.0);
-    col += foil * tw * step(0.985 - strength * 0.02, sp) * strength * 2.4 * mask;
+    // (no per-texel glitter: on small cards it aliases into blinking dots as the camera moves)
     // glancing sheen
     float sheen = pow(1.0 - abs(facing), 3.0);
     col += foil * sheen * strength * 0.6;
