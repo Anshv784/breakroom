@@ -144,7 +144,10 @@ export default function Room({ id }: { id: bigint }) {
   const onRip = () => {
     const c = useApp.getState().client;
     if (!c) return;
-    useApp.getState().run("Rip", () => c.sendSession([c.ripIx(id)]));
+    // if the window closed a moment before our rip landed, the crank already opened it: say nothing
+    c.sendSession([c.ripIx(id)]).catch((e) => {
+      if (!/NotYourRip|6040|0x1798|turn to be ripped/i.test(String(e?.message ?? e))) useApp.getState().toast("err", "Rip didn't go through. The pack will open on its own.");
+    });
   };
   const pulled = pull && cards[pull.card];
   const pulledMine = pulled && b.spotOwner[pull!.spot]?.toBase58() === me;

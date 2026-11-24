@@ -110,7 +110,7 @@ export function Pack3D({ spot, art, tear, ...props }: { spot: number; art: numbe
   const bodyH = PH * (1 - TOP);
   const topH = PH * TOP;
   const body = useMemo(() => foilMaterial(0, 1 - TOP, tex), [tex]);
-  const top = useMemo(() => foilMaterial(1 - TOP, TOP, tex), [tex]);
+  const top = useMemo(() => Object.assign(foilMaterial(1 - TOP, TOP, tex), { transparent: true }), [tex]);
   const torn = useMemo(() => new THREE.MeshStandardMaterial({ map: TORN, transparent: true, alphaTest: 0.4, metalness: 0.85, roughness: 0.28, side: THREE.DoubleSide }), []);
   const strip = useRef<THREE.Group>(null);
   const stripMesh = useRef<THREE.Mesh>(null);
@@ -148,9 +148,11 @@ export function Pack3D({ spot, art, tear, ...props }: { spot: number; art: numbe
     }
     const g = strip.current;
     if (g) {
-      g.position.set(fly * 0.5, seam + topH / 2 + fly * 0.45 - fly * fly * 0.7, fly * 0.25);
-      g.rotation.set(-fly * 0.6, fly * 0.7, -fly * 1.4);
-      g.visible = k < 0.995;
+      // the freed strip flicks away to the side and behind the pack, fading as it goes
+      g.position.set(fly * 0.95, seam + topH / 2 + fly * 0.25 - fly * fly * 0.5, -fly * 0.35);
+      g.rotation.set(-fly * 0.6, fly * 0.9, -fly * 1.2);
+      top.opacity = 1 - THREE.MathUtils.smoothstep(fly, 0.15, 0.7);
+      g.visible = k < 0.995 && top.opacity > 0.01;
     }
     if (edge.current) {
       const w = THREE.MathUtils.clamp(front, 0, 1);

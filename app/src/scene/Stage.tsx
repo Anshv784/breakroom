@@ -152,19 +152,26 @@ function Burst({ color }: { color: string }) {
   );
 }
 
-function CameraRig({ focus }: { focus: boolean }) {
+function CameraRig({ focus, closeUp }: { focus: boolean; closeUp: boolean }) {
   const { camera, pointer, size } = useThree();
   // portrait screens: step back so the whole arc of spots fits
   const k = Math.max(1, Math.min(2.8, 1.55 / (size.width / size.height)));
   const look = useMemo(() => new THREE.Vector3(0, 0.6, 0), []);
   const want = useMemo(() => new THREE.Vector3(), []);
   const lookWant = useMemo(() => new THREE.Vector3(), []);
+  const closeAt = useRef(0); // last time your pack was up: the card you rip gets a close showcase
   useFrame((_, dt) => {
+    if (closeUp) closeAt.current = performance.now();
+    const mine = performance.now() - closeAt.current < 4200;
     const px = settings.get().reduceMotion ? 0 : pointer.x, py = settings.get().reduceMotion ? 0 : pointer.y;
-    if (focus) want.set(px * 0.04, 1.65 * k, 4.2 * k);
+    // your pack is up: move in close so the seal fills the view
+    if (closeUp && !focus) want.set(px * 0.03, 1.05 * k, 1.95 * k);
+    else if (focus && mine) want.set(px * 0.02, 1.3 * k, 3.35 * k);
+    else if (closeUp || (mine && !focus)) want.set(px * 0.03, 1.05 * k, 1.95 * k);
+    else if (focus) want.set(px * 0.04, 1.65 * k, 4.2 * k);
     else want.set(px * 0.2, 1.5 * k + py * 0.05, 3.75 * k);
-    camera.position.lerp(want, damp(focus ? 2.2 : 1.6, dt));
-    lookWant.set(...((focus ? [0, 1.0, -0.1] : [0, 0.5, -0.75]) as [number, number, number]));
+    camera.position.lerp(want, damp(focus ? 2.2 : closeUp ? 1.8 : 1.6, dt));
+    lookWant.set(...(((closeUp || mine) && !focus ? [0, 0.84, -0.45] : focus && mine ? [0, 1.18, 0.9] : focus ? [0, 1.0, -0.1] : [0, 0.5, -0.75]) as [number, number, number]));
     look.lerp(lookWant, damp(2.4, dt));
     camera.lookAt(look);
   });
@@ -219,7 +226,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
       <pointLight position={[-4.5, 2.2, 1.5]} intensity={18} color="#7cf7e4" />
       <pointLight position={[4.5, 2.2, 1.5]} intensity={18} color="#b58cff" />
       <pointLight position={[0, 1.6, -3.2]} intensity={8} color="#cfc4ff" />
-      <CameraRig focus={focus} />
+      <CameraRig focus={focus} closeUp={!!rip?.mine} />
       <AdaptiveDpr pixelated={false} />
       <Suspense fallback={null}>
         <Environment resolution={128}>
