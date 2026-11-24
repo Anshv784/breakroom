@@ -1,7 +1,6 @@
 // App-style connect screen for pages that need a wallet: one focused panel, the wallets right there.
-import { useEffect, useMemo, useState } from "react";
-import { readiness, useApp } from "../state/store";
-import { detectWallets, onWalletsChanged, type Detected } from "../state/wallet";
+import { useMemo } from "react";
+import { useApp } from "../state/store";
 import { IS_MAINNET } from "../chain/config";
 import { cardImage, type CardFace } from "../lib/art";
 import "./gate.css";
@@ -14,16 +13,7 @@ const FACES: CardFace[] = [
 
 export function ConnectGate({ title, sub }: { title: string; sub: string }) {
   const s = useApp();
-  const [wallets, setWallets] = useState<Detected[]>(detectWallets);
-  const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => onWalletsChanged(() => setWallets(detectWallets())), []);
   const imgs = useMemo(() => FACES.map(cardImage), []);
-  const pick = async (d: Detected | "guest") => {
-    setBusy(d === "guest" ? "guest" : d.name);
-    await s.run("Connect", () => s.connect(d));
-    setBusy(null);
-    if (useApp.getState().client && !readiness(useApp.getState()).ready) s.setOnboard(true);
-  };
   const connected = !!s.client;
   return (
     <div className="gate">
@@ -42,27 +32,16 @@ export function ConnectGate({ title, sub }: { title: string; sub: string }) {
             <span className="gate-go">→</span>
           </button>
         ) : (
-          <div className="gate-list">
-            {wallets.map((w, i) => (
-              <button key={w.name} className={`gate-row ${i === 0 ? "primary" : ""}`} onClick={() => pick(w)} disabled={!!busy}>
-                <img src={w.icon} alt="" width={26} height={26} />
-                {w.name}
-                <span className="gate-go">{busy === w.name ? "approve in wallet…" : "→"}</span>
-              </button>
-            ))}
-            {!IS_MAINNET && (
-              <button className={`gate-row ${wallets.length === 0 ? "primary" : ""}`} onClick={() => pick("guest")} disabled={!!busy}>
-                <span className="gate-ico">✦</span>
-                Guest wallet
-                <span className="gate-go">{busy === "guest" ? "creating…" : <i>instant · no extension</i>}</span>
-              </button>
-            )}
-            {wallets.length === 0 && (
-              <a className="gate-hint" href="https://phantom.com" target="_blank" rel="noreferrer">
-                No wallet extension found · get Phantom ↗
-              </a>
-            )}
-          </div>
+          <button className="gate-row primary gate-connect" onClick={() => s.setConnect(true)}>
+            <span className="gate-ico">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7a2 2 0 0 1 2-2h13v4" />
+                <path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z" />
+              </svg>
+            </span>
+            Connect wallet
+            <span className="gate-go">→</span>
+          </button>
         )}
         {!IS_MAINNET && (
           <div className="gate-foot">

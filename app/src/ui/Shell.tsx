@@ -6,6 +6,7 @@ import { detectWallets, onWalletsChanged, type Detected } from "../state/wallet"
 import { IS_MAINNET } from "../chain/config";
 import { Logo } from "./Logo";
 import { TestBadge } from "./Footer";
+import "./gate.css";
 import { CLUSTER } from "../chain/config";
 
 export function Nav({ route }: { route: string[] }) {
@@ -154,25 +155,33 @@ export function ConnectModal() {
   };
   return (
     <div className="scrim" onClick={() => s.setConnect(false)}>
-      <div className="panel modal" onClick={(e) => e.stopPropagation()}>
-        <div className="eyebrow">Connect</div>
-        <h2 className="display" style={{ margin: "6px 0 18px", fontSize: 24 }}>
-          Pick a wallet
+      <div className="panel modal" style={{ width: "min(420px,100%)", borderRadius: 24, position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => s.setConnect(false)} aria-label="Close" style={{ all: "unset", cursor: "pointer", position: "absolute", top: 16, right: 18, color: "var(--text-3)", fontSize: 20, lineHeight: 1 }}>
+          ×
+        </button>
+        <h2 className="display" style={{ margin: "2px 0 6px", fontSize: 22 }}>
+          Connect a wallet
         </h2>
-        <div style={{ display: "grid", gap: 8 }}>
+        <p className="muted" style={{ margin: "0 0 18px", fontSize: 14 }}>Pick how you want to sign in to BREAKROOM.</p>
+        <div className="gate-list">
           {wallets.map((w) => (
-            <button key={w.name} className="btn lg" style={{ justifyContent: "flex-start", borderRadius: 14 }} onClick={() => pick(w)} disabled={!!busy}>
-              <img src={w.icon} alt="" width={24} height={24} style={{ borderRadius: 6 }} />
+            <button key={w.name} className="gate-row" onClick={() => pick(w)} disabled={!!busy}>
+              <img src={w.icon} alt="" width={26} height={26} />
               {w.name}
-              {busy === w.name && <span className="faint" style={{ marginLeft: "auto" }}>approve in wallet…</span>}
+              <span className="gate-go">{busy === w.name ? "approve in wallet…" : "Detected"}</span>
             </button>
           ))}
-          {wallets.length === 0 && <p className="muted" style={{ margin: 0 }}>No Solana wallet found in this browser.</p>}
           {!IS_MAINNET && (
-            <button className="btn lg ghost" style={{ justifyContent: "flex-start", borderRadius: 14 }} onClick={() => pick("guest")} disabled={!!busy}>
-              <span style={{ width: 24, textAlign: "center" }}>✦</span>
-              Guest wallet <span className="faint" style={{ marginLeft: "auto", fontSize: 12 }}>instant, no extension</span>
+            <button className="gate-row" onClick={() => pick("guest")} disabled={!!busy}>
+              <span className="gate-ico">✦</span>
+              Guest wallet
+              <span className="gate-go">{busy === "guest" ? "creating…" : "instant · no extension"}</span>
             </button>
+          )}
+          {wallets.length === 0 && (
+            <a className="gate-hint" href="https://phantom.com" target="_blank" rel="noreferrer" style={{ textAlign: "center" }}>
+              No wallet extension found · get Phantom ↗
+            </a>
           )}
         </div>
         <p className="faint" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>

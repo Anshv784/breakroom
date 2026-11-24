@@ -130,3 +130,11 @@
   border-radius: 6px;
   background: var(--warn);
 }
+.gate-connect {
+  height: 62px;
+  justify-content: center;
+  font-size: 16.5px;
+}
+.gate-connect .gate-go {
+  margin-left: 4px;
+}
