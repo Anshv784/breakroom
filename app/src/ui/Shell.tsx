@@ -5,6 +5,8 @@ import { readiness, shortKey, usd, useApp } from "../state/store";
 import { detectWallets, onWalletsChanged, type Detected } from "../state/wallet";
 import { IS_MAINNET } from "../chain/config";
 import { Logo } from "./Logo";
+import { TestBadge } from "./Footer";
+import { CLUSTER } from "../chain/config";
 
 export function Nav({ route }: { route: string[] }) {
   const s = useApp();
@@ -35,16 +37,21 @@ export function Nav({ route }: { route: string[] }) {
           </a>
         </nav>
         <div className="nav-right">
-          {!IS_MAINNET && <span className="chip faint">devnet</span>}
+          <TestBadge />
           {s.client ? (
             <>
               <button className="btn sm ghost" onClick={() => (s.locked ? s.unlock() : s.setOnboard(true))} title={s.locked ? "Sign once to read your private balance" : "Private balance inside the TEE"}>
-                <span className="mono num">{s.locked ? "🔒 Unlock" : usd(s.privateUsdc)}</span>
-                {!r.ready && <span className="chip sale" style={{ height: 20 }}>Get ready</span>}
+                {s.locked ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                    Show balance
+                  </span>
+                ) : (
+                  <span className="mono num">{usd(s.privateUsdc)}</span>
+                )}
+                {!r.ready && <span className="chip sale" style={{ height: 20 }}>Set up</span>}
               </button>
-              <button className="btn sm" onClick={() => s.disconnect()} title="Disconnect">
-                {s.profile?.name || shortKey(s.client.me)}
-              </button>
+              <AccountMenu />
             </>
           ) : (
             <button className="btn sm primary" onClick={() => s.setConnect(true)}>
@@ -54,6 +61,58 @@ export function Nav({ route }: { route: string[] }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function AccountMenu() {
+  const s = useApp();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const t = setTimeout(() => window.addEventListener("click", close), 0);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("click", close);
+    };
+  }, [open]);
+  if (!s.client) return null;
+  const me = s.client.me.toBase58();
+  const label = s.profile?.name || shortKey(s.client.me);
+  return (
+    <div className="acct">
+      <button className="btn sm" onClick={(e) => (e.stopPropagation(), setOpen(!open))} aria-haspopup="menu" aria-expanded={open}>
+        <span className="avatar">{label.slice(0, 1).toUpperCase()}</span>
+        {label}
+        <span className="faint" style={{ fontSize: 10 }}>▾</span>
+      </button>
+      {open && (
+        <div className="acct-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+          <div className="acct-head">
+            <div style={{ fontWeight: 600 }}>{label}</div>
+            <div className="faint mono" style={{ fontSize: 12, marginTop: 2 }}>{shortKey(s.client.me)} · {s.walletName}</div>
+          </div>
+          <a href="#/vault" onClick={() => setOpen(false)}>Your vault <span className="faint">→</span></a>
+          <button onClick={() => (s.setOnboard(true), setOpen(false))}>Balance & setup</button>
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(me);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1200);
+            }}
+          >
+            {copied ? "Copied" : "Copy address"}
+          </button>
+          <a href={`https://explorer.solana.com/address/${me}${CLUSTER === "mainnet" ? "" : "?cluster=devnet"}`} target="_blank" rel="noreferrer">
+            View on explorer <span className="faint">↗</span>
+          </a>
+          <button onClick={() => (s.disconnect(), setOpen(false))} style={{ color: "var(--down)" }}>
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -112,12 +171,12 @@ export function ConnectModal() {
           {!IS_MAINNET && (
             <button className="btn lg ghost" style={{ justifyContent: "flex-start", borderRadius: 14 }} onClick={() => pick("guest")} disabled={!!busy}>
               <span style={{ width: 24, textAlign: "center" }}>✦</span>
-              Guest wallet <span className="faint" style={{ marginLeft: "auto", fontSize: 12 }}>devnet, kept in this browser</span>
+              Guest wallet <span className="faint" style={{ marginLeft: "auto", fontSize: 12 }}>instant, no extension</span>
             </button>
           )}
         </div>
         <p className="faint" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>
-          Make sure your wallet is set to {IS_MAINNET ? "mainnet" : "devnet"}.
+          {IS_MAINNET ? "Make sure your wallet is on mainnet." : "Public test: switch your wallet to Solana devnet, or use a guest wallet that lives in this browser."}
         </p>
       </div>
     </div>
@@ -155,8 +214,8 @@ export function OnboardModal() {
   const rows: { key: string; title: string; detail: string; done: boolean; action?: JSX.Element }[] = [
     {
       key: "sol",
-      title: "A little devnet SOL",
-      detail: `For account rent on Solana. You have ${s.sol.toFixed(3)} SOL.`,
+      title: "Test SOL for fees",
+      detail: `Covers Solana account rent. You have ${s.sol.toFixed(3)} SOL.`,
       done: r.sol,
       action: (
         <div style={{ display: "flex", gap: 6 }}>
@@ -182,7 +241,7 @@ export function OnboardModal() {
     {
       key: "usdc",
       title: "Test USDC",
-      detail: "1,000 devnet USDC from BREAKROOM's on-chain faucet.",
+      detail: "1,000 test USDC from the BREAKROOM faucet. Not real money.",
       done: r.usdc,
       action: (
         <button className="btn sm" disabled={!r.sol || !!busy} onClick={() => step("usdc", "Faucet", () => c.sendBase([c.faucetIx()]))}>
@@ -238,7 +297,7 @@ export function OnboardModal() {
     },
     {
       key: "session",
-      title: "Trade without popups",
+      title: "One-tap trading",
       detail: `One signature lets this browser's session key spend up to ${usd(SESSION_LIMIT, 0)} of your private balance. Every buy and trade after that is instant and free.`,
       done: r.session,
       action: (
@@ -251,10 +310,18 @@ export function OnboardModal() {
   return (
     <div className="scrim" onClick={() => s.setOnboard(false)}>
       <div className="panel modal" style={{ width: "min(560px,100%)" }} onClick={(e) => e.stopPropagation()}>
-        <div className="eyebrow">{r.ready ? "You're set" : "Get ready to break"}</div>
+        <div className="eyebrow">{r.ready ? "You're all set" : "Account setup · about a minute"}</div>
         <h2 className="display" style={{ margin: "6px 0 4px", fontSize: 24 }}>
-          {r.ready ? "Ready" : "Five quick steps"}
+          {r.ready ? "Ready to break" : "Set up your account"}
         </h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 12px" }}>
+          <div style={{ flex: 1, height: 5, borderRadius: 5, background: "rgba(255,255,255,.07)", overflow: "hidden" }}>
+            <div style={{ width: `${(rows.filter((x) => x.done).length / rows.length) * 100}%`, height: "100%", background: "var(--foil)", transition: "width .5s var(--ease)" }} />
+          </div>
+          <span className="mono faint" style={{ fontSize: 12 }}>
+            {rows.filter((x) => x.done).length}/{rows.length}
+          </span>
+        </div>
         <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
           Private balance <b className="mono">{usd(s.privateUsdc)}</b> · On Solana <b className="mono">{usd(s.baseUsdc)}</b>
         </p>
@@ -291,7 +358,7 @@ export function OnboardModal() {
             <span />
           )}
           <button className="btn sm primary" onClick={() => s.setOnboard(false)}>
-            {r.ready ? "Let's go" : "Later"}
+            {r.ready ? "Let's go" : "Finish later"}
           </button>
         </div>
       </div>

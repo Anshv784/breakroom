@@ -15,7 +15,7 @@ await p.goto(`${URL}/#/`);
 await step("connect guest", async () => {
   await p.getByRole("button", { name: "Connect" }).first().click();
   await p.getByRole("button", { name: /Guest wallet/ }).click();
-  await p.getByText("Five quick steps").waitFor({ timeout: 15000 });
+  await p.getByText("Set up your account").waitFor({ timeout: 15000 });
 });
 const secret = await p.evaluate(() => localStorage.getItem("br-guest"));
 const pub = execFileSync("npx", ["tsx", "-e", `import bs58 from "bs58"; import {Keypair} from "@solana/web3.js"; console.log(Keypair.fromSecretKey(bs58.decode("${secret}")).publicKey.toBase58())`], { encoding: "utf8" }).trim();
@@ -40,7 +40,7 @@ await step("create profile", async () => {
 });
 await step("start session", async () => {
   await p.getByRole("button", { name: "Start session" }).click();
-  await p.getByText("You're set").waitFor({ timeout: 60000 });
+  await p.getByText("You're all set").waitFor({ timeout: 60000 });
 });
 await shot("2-ready");
 await p.getByRole("button", { name: "Let's go" }).click();

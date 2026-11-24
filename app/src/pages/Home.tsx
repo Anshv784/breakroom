@@ -186,7 +186,7 @@ export default function Home() {
       <section className="wrap section final">
         <div className="panel final-in">
           <h2 className="display">Rip something you can prove.</h2>
-          <p className="muted">Devnet is open: get test USDC from the faucet and join a break in under a minute.</p>
+          <p className="muted">The public test is open. Grab test USDC, take a spot, and watch the packs open in under a minute.</p>
           <div className="hero-cta" style={{ justifyContent: "center" }}>
             <a href="#/breaks" className="btn primary lg">
               Browse breaks
@@ -197,10 +197,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <footer className="wrap foot faint">
-        <span>BREAKROOM · built on Solana + MagicBlock</span>
-        <span className="mono">devnet</span>
-      </footer>
     </div>
   );
 }

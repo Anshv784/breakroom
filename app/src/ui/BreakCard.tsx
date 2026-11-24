@@ -1,10 +1,11 @@
-// Lobby tile for one break: chase card, box value, spots, status.
+// Lobby tile for one break: chase card, box value, spots, status, progress.
 import { useMemo } from "react";
 import type { BreakState } from "../chain/layout";
-import { STATUS_LABEL } from "../chain/layout";
+import { ST, STATUS_LABEL } from "../chain/layout";
 import { useCards, useNames } from "../lib/useBreaks";
 import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
 import { usd } from "../state/store";
+import "../pages/lobby.css";
 
 export function StatusChip({ status }: { status: number }) {
   const cls = status === 3 || status === 2 ? "live" : status === 1 ? "sale" : "done";
@@ -13,6 +14,26 @@ export function StatusChip({ status }: { status: number }) {
       <span className="dot" />
       {status === 3 ? "LIVE" : STATUS_LABEL[status]}
     </span>
+  );
+}
+
+/** Spots sold while on sale; cards out while live; done after. */
+export function SpotBar({ b, big = false }: { b: BreakState; big?: boolean }) {
+  const live = b.status === ST.LIVE || b.status === ST.SHUFFLING;
+  const done = b.status >= ST.ENDED;
+  const bids = b.bidCount.slice(0, b.nSpots).reduce((a, x) => a + x, 0);
+  const k = done ? 1 : live ? b.cursor / Math.max(1, b.nCards) : b.sold / Math.max(1, b.nSpots);
+  const label = done ? `All ${b.nCards} cards out` : live ? `${b.cursor} of ${b.nCards} cards out` : b.sale === 1 ? `${bids} sealed bid${bids === 1 ? "" : "s"} · ${b.nSpots} spots` : `${b.sold} of ${b.nSpots} spots taken`;
+  return (
+    <div className={`spotbar ${big ? "big" : ""}`}>
+      <div className="spotbar-track">
+        <div className={`spotbar-fill ${live ? "live" : done ? "done" : ""}`} style={{ width: `${Math.max(3, k * 100)}%` }} />
+      </div>
+      <div className="spotbar-label">
+        <span>{label}</span>
+        {!done && !live && b.sale !== 1 && <span className="mono">{b.nSpots - b.sold} left</span>}
+      </div>
+    </div>
   );
 }
 
@@ -26,39 +47,34 @@ export function BreakCard({ b, rep }: { b: BreakState; rep?: { verified: number 
     });
     return best >= 0 ? cards[best] : null;
   }, [cards]);
-  const open = b.status === 1 ? b.nSpots - b.sold : 0;
   return (
-    <a href={`#/break/${b.breakId}`} className="panel" style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: 16, padding: 16, transition: "transform .2s var(--ease), border-color .2s" }}
-      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = "")}>
-      <div style={{ width: 96, aspectRatio: "512/716", borderRadius: 8, overflow: "hidden", background: "var(--bg-2)", boxShadow: "0 10px 30px -12px rgba(0,0,0,.8)" }}>
-        {chase ? <img src={cardImage(faceOf(chase))} alt={chase.name} style={{ width: "100%", height: "100%", display: "block" }} /> : <div className="skeleton" style={{ height: "100%" }} />}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <a href={`#/break/${b.breakId}`} className="bcard panel">
+      <div className="bcard-art">{chase ? <img src={cardImage(faceOf(chase))} alt={chase.name} /> : <div className="skeleton" style={{ height: "100%" }} />}</div>
+      <div className="bcard-body">
+        <div className="bcard-top">
           <StatusChip status={b.status} />
-          <span className="faint" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            by {name(b.host)}
-            {rep && rep.verified > 0 && <span className="up"> ✓{rep.verified}</span>}
-          </span>
-          {b.mode === 1 && <span className="chip" style={{ height: 20, fontSize: 11 }}>Teams</span>}
-          {b.sale === 1 && <span className="chip sale" style={{ height: 20, fontSize: 11 }}>Auction</span>}
+          {b.sale === 1 && <span className="chip sale mini">Auction</span>}
+          {b.mode === 1 && <span className="chip mini">Teams</span>}
         </div>
-        <div style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>{b.title || "Untitled break"}</div>
+        <div className="bcard-title">{b.title || "Untitled break"}</div>
+        <div className="bcard-host faint">
+          by {name(b.host)}
+          {rep && rep.verified > 0 && <span className="up"> · ✓ {rep.verified} verified</span>}
+        </div>
         {chase && (
-          <div style={{ fontSize: 12 }}>
+          <div className="bcard-chase">
             <span className={`tier-${chase.tier}`}>{TIER_NAMES[chase.tier]}</span> <span className="muted">{chase.name}</span>
           </div>
         )}
-        <div style={{ marginTop: "auto", display: "flex", gap: 14, fontSize: 12 }} className="muted">
+        <div className="bcard-nums">
           <span>
-            Box <b className="mono" style={{ color: "var(--text)" }}>{usd(b.boxValue, 0)}</b>
+            <i>Box</i> <b className="mono">{usd(b.boxValue, 0)}</b>
           </span>
           <span>
-            Spot <b className="mono" style={{ color: "var(--text)" }}>{usd(b.spotPrice, 0)}</b>
+            <i>{b.sale === 1 ? "Reserve" : "Spot"}</i> <b className="mono">{usd(b.spotPrice, 0)}</b>
           </span>
-          <span>{b.status === 1 ? `${open} of ${b.nSpots} left` : b.status === 3 ? `${b.cursor}/${b.nCards} out` : `${b.nSpots} spots`}</span>
         </div>
+        <SpotBar b={b} />
       </div>
     </a>
   );

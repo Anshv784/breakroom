@@ -6,6 +6,7 @@ import type { CardInfo } from "../chain/layout";
 import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
 import { go } from "../lib/router";
 import "./host.css";
+import { Intro } from "../ui/Intro";
 
 const SPEEDS = [
   { ms: 2000, label: "Fast", hint: "2s a card" },
@@ -94,17 +95,38 @@ export default function Host() {
     } else setProgress(null);
   };
 
-  if (!c)
+  if (!c || !r.ready)
     return (
-      <Gate title="Host a break" body="Connect a wallet to pick the cards you'll break.">
-        <button className="btn primary lg" onClick={() => s.setConnect(true)}>Connect</button>
-      </Gate>
-    );
-  if (!r.ready)
-    return (
-      <Gate title="Host a break" body="Hosts are paid the moment each spot sells, straight into a private balance inside the TEE. Finish setup first.">
-        <button className="btn primary lg" onClick={() => s.setOnboard(true)}>Get ready</button>
-      </Gate>
+      <Intro
+        eyebrow="Host a break"
+        title="Run a break nobody can call rigged."
+        sub="Lock your box on chain, sell spots in USDC and open it live. The shuffle is sealed in a TEE you can't read either, so every pull is beyond question, and you're paid the moment each spot sells."
+        action={
+          !c ? (
+            <>
+              <button className="btn primary lg" onClick={() => s.setConnect(true)}>Connect to start hosting</button>
+              <a href="#/how" className="btn lg ghost">How it's fair</a>
+            </>
+          ) : (
+            <>
+              <button className="btn primary lg" onClick={() => s.setOnboard(true)}>Finish account setup</button>
+              <a href="#/breaks" className="btn lg ghost">Watch a break first</a>
+            </>
+          )
+        }
+        note="Public test: start with a free demo box of Genesis test cards. No real cards or money."
+        points={[
+          { title: "Paid on every sale", body: "Each spot is a direct transfer to you: 95% lands in your private balance the second it sells. BREAKROOM never holds the money." },
+          { title: "Proof you didn't cheat", body: "The box is committed before the sale and shuffled by MagicBlock VRF inside a sealed enclave. Anyone can re-run it afterwards." },
+          { title: "Spots keep selling", body: "Holders can resell their spot while the packs open, so late buyers still get in and every reveal moves a live market." },
+        ]}
+        steps={[
+          { title: "Pick your cards", body: "Choose appraised card NFTs from your wallet. Values come from the appraisal desk, not you." },
+          { title: "Shape the break", body: "Spots, cards per spot, fixed price or sealed-bid auction, pack or random-team format." },
+          { title: "Lock and sell", body: "Cards go into the program vault, the list is hashed into a commitment, the sale opens." },
+          { title: "Rip it live", body: "A crank opens one card every few seconds. A Magic Action settles every card on Solana." },
+        ]}
+      />
     );
 
   return (
@@ -125,7 +147,7 @@ export default function Host() {
                 </button>
               )}
               <button className="btn sm" onClick={requestDemoBox} disabled={requesting}>
-                {requesting ? "Minting…" : "Get a demo box"}
+                {requesting ? "Minting…" : "Get 12 test cards"}
               </button>
             </div>
           </div>
@@ -236,14 +258,3 @@ export default function Host() {
   );
 }
 
-function Gate({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
-  return (
-    <div className="wrap" style={{ padding: "80px 24px" }}>
-      <div className="panel" style={{ padding: 40, maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
-        <h1 className="display" style={{ fontSize: 30, margin: "0 0 10px" }}>{title}</h1>
-        <p className="muted">{body}</p>
-        {children}
-      </div>
-    </div>
-  );
-}

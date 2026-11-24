@@ -12,9 +12,21 @@ export function readerClient() {
   return useApp.getState().client ?? (reader ??= new BreakroomClient(keypairWallet(Keypair.generate())));
 }
 
+const LIST_CACHE = "br-list-cache-v1";
+const keep = (b: BreakState) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|\[test\])/i.test(b.title);
+function cachedList(): BreakState[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LIST_CACHE) || "[]") as string[];
+    return raw.map((b64) => decodeBreak(Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)))).filter(keep);
+  } catch {
+    return [];
+  }
+}
+
 export function useBreakList(pollMs = 5_000) {
-  const [list, setList] = useState<BreakState[]>([]);
-  const [loading, setLoading] = useState(true);
+  // paint the last list we saw straight away, then refresh from chain
+  const [list, setList] = useState<BreakState[]>(cachedList);
+  const [loading, setLoading] = useState(() => list.length === 0);
   useEffect(() => {
     let alive = true;
     let ids: bigint[] = [];
@@ -28,7 +40,12 @@ export function useBreakList(pollMs = 5_000) {
         }
         const bs = await c.fetchBreaks(ids.slice(0, 60));
         // test runs (scripts/e2e.ts, probes) stay on chain but out of the lobby
-        if (alive) setList(bs.filter((b) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|\[test\])/i.test(b.title)));
+        if (alive) setList(bs.filter(keep));
+        try {
+          localStorage.setItem(LIST_CACHE, JSON.stringify(c.lastBreaksRaw.map((d) => btoa(Array.from(d, (x) => String.fromCharCode(x)).join("")))));
+        } catch {
+          /* storage full or blocked: just no cache */
+        }
       } catch (e) {
         console.warn("break list", e);
       } finally {

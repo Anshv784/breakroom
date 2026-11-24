@@ -454,16 +454,23 @@ export class BreakroomClient {
   async fetchBreaks(ids: bigint[]): Promise<BreakState[]> {
     const tee = await this.teeSession();
     const out: BreakState[] = [];
+    const raw: Uint8Array[] = [];
     for (let i = 0; i < ids.length; i += 50) {
       const keys = ids.slice(i, i + 50).map(breakPda);
       const [t, b] = await Promise.all([tee.getMultipleAccountsInfo(keys).catch(() => keys.map(() => null)), this.base.getMultipleAccountsInfo(keys)]);
       keys.forEach((_, j) => {
         const info = t[j] ?? b[j];
-        if (info && info.data.length === BREAK_LEN) out.push(decodeBreak(info.data));
+        if (info && info.data.length === BREAK_LEN) {
+          out.push(decodeBreak(info.data));
+          raw.push(info.data);
+        }
       });
     }
+    this.lastBreaksRaw = raw;
     return out;
   }
+  /** Raw account data from the last fetchBreaks (lets the UI cache the lobby). */
+  lastBreaksRaw: Uint8Array[] = [];
 
   async fetchReceipt(id: bigint) {
     const info = await this.base.getAccountInfo(receiptPda(id));
