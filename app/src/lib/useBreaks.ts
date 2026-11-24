@@ -13,6 +13,7 @@ export function readerClient() {
 }
 
 const LIST_CACHE = "br-list-cache-v1";
+const ST_ENDED = 4;
 const keep = (b: BreakState) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|rip test|\[test\])/i.test(b.title);
 function cachedList(): BreakState[] {
   try {
@@ -22,6 +23,10 @@ function cachedList(): BreakState[] {
     return [];
   }
 }
+
+/** Breaks painted from Solana's copy before the TEE answered: their live numbers may be stale. */
+const provisional = new WeakSet<BreakState>();
+export const isProvisional = (b: BreakState) => provisional.has(b);
 
 // One shared break list for the whole app: every page that shows breaks subscribes to the same
 // store, so moving between pages never reloads it. Polls at the fastest rate any page asks for.
@@ -68,6 +73,7 @@ async function refreshList() {
     if (store.list.length === 0) {
       const quick = await c.fetchBreaksBase(store.ids.slice(0, 60)).catch(() => []);
       if (store.list.length === 0 && quick.length) {
+        quick.forEach((b) => b.status < ST_ENDED && provisional.add(b));
         store.list = quick.filter(keep);
         store.loaded = true;
         emit();
@@ -75,6 +81,8 @@ async function refreshList() {
     }
     await auth;
     const bs = await c.fetchBreaks(store.ids.slice(0, 60));
+    // if the TEE didn't answer, these are Solana's copies: keep their live numbers hidden
+    if (!c.lastTeeOk) bs.forEach((b) => b.status < ST_ENDED && provisional.add(b));
     store.list = bs.filter(keep);
     store.loaded = true;
     emit();

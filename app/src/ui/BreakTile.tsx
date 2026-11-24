@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import type { BreakState } from "../chain/layout";
 import { ST } from "../chain/layout";
-import { useCards, useNames } from "../lib/useBreaks";
+import { isProvisional, useCards, useNames } from "../lib/useBreaks";
 import { cardImage, faceOf, TIER_COLORS, TIER_NAMES } from "../lib/art";
 import { usd } from "../state/store";
 import "./tile.css";
@@ -18,12 +18,28 @@ export function BreakTile({ b, verified = 0 }: { b: BreakState; verified?: numbe
   const left = b.nSpots - b.sold;
   const k = ended ? 1 : live ? b.cursor / Math.max(1, b.nCards) : b.sold / Math.max(1, b.nSpots);
   const tint = chase ? TIER_COLORS[chase.tier] : "#b58cff";
+  const stale = isProvisional(b); // live numbers not in yet
   return (
-    <a href={`#/break/${b.breakId}`} className="tile" style={{ ["--tint" as any]: tint }}>
+    <a href={`#/break/${b.breakId}`} className={`tile ${live ? "is-live" : ""} ${chase && chase.tier >= 4 ? "is-chase" : ""}`} style={{ ["--tint" as any]: tint, ["--d" as any]: `${(Number(b.breakId % 7n) * 0.9).toFixed(1)}s` }}>
       <div className="tile-art">
         <div className="tile-bg" />
         {back && <img className="tile-card back" src={cardImage(faceOf(back))} alt="" />}
-        {chase ? <img className="tile-card" src={cardImage(faceOf(chase))} alt={chase.name} /> : <div className="tile-card skeleton" />}
+        {chase ? (
+          <div className="tile-card">
+            <img src={cardImage(faceOf(chase))} alt={chase.name} />
+            <span className="tile-sheen" />
+          </div>
+        ) : (
+          <div className="tile-card skeleton" />
+        )}
+        {chase && chase.tier >= 4 && (
+          <span className="tile-stars" aria-hidden>
+            <i />
+            <i />
+            <i />
+            <i />
+          </span>
+        )}
         <span className={`tile-status ${live ? "live" : ended ? "ended" : "sale"}`}>
           {live ? (
             <>
@@ -37,7 +53,7 @@ export function BreakTile({ b, verified = 0 }: { b: BreakState; verified?: numbe
             "On sale"
           )}
         </span>
-        {!ended && !live && <span className="tile-left">{left > 0 ? `${left} left` : "Sold out"}</span>}
+        {!ended && !live && <span className="tile-left">{stale ? "—" : left > 0 ? `${left} left` : "Sold out"}</span>}
         {live && (
           <span className="tile-left">
             {b.cursor}/{b.nCards} out
@@ -71,7 +87,7 @@ export function BreakTile({ b, verified = 0 }: { b: BreakState; verified?: numbe
           </div>
         </div>
         <div className="tile-bar">
-          <div className={live ? "live" : ended ? "ended" : ""} style={{ width: `${Math.max(2, k * 100)}%` }} />
+          <div className={live ? "live" : ended ? "ended" : ""} style={{ width: stale ? "0%" : `${Math.max(2, k * 100)}%` }} />
         </div>
       </div>
     </a>

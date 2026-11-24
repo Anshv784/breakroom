@@ -557,3 +557,34 @@ label.field {
     transform: translateY(6px);
   }
 }
+
+/* ---- decoration: a thin light edge on panels, a sweep on primary buttons ---- */
+.panel {
+  position: relative;
+}
+.panel::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  pointer-events: none;
+}
+.btn.primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn.primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+.btn.primary:hover::after {
+  transition: transform 0.7s var(--ease);
+  transform: translateX(130%);
+}
