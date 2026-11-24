@@ -1,8 +1,10 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useApp, usd } from "../state/store";
 import { BreakroomClient, keypairWallet, statsPda } from "../chain/client";
-import { Keypair } from "@solana/web3.js";
-import { useBreakList } from "../lib/useBreaks";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { useBreakList, useCards, useNames } from "../lib/useBreaks";
+import { leaderboard } from "../lib/rep";
+import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
 import { BreakCard } from "../ui/BreakCard";
 import { hostRep } from "../lib/rep";
 import "./home.css";
@@ -30,46 +32,51 @@ function useStats() {
   return s;
 }
 
-const STEPS = [
-  {
-    n: "01",
-    title: "The box is locked",
-    body: "The host deposits every card NFT into a program vault and the card list is hashed into a commitment before a single spot sells. Prices come from the appraisal desk, never from the host.",
-    tech: "Solana program vault · sha256 commitment",
-  },
-  {
-    n: "02",
-    title: "Nobody sees the shuffle",
-    body: "When the sale closes, MagicBlock VRF seeds a shuffle that lands straight inside a sealed account in an Intel TDX enclave. Not the host, not us — no one can read it until the last card is out.",
-    tech: "MagicBlock VRF · Private Ephemeral Rollup (TEE)",
-  },
-  {
-    n: "03",
-    title: "Packs open live. Spots trade.",
-    body: "A crank inside the rollup reveals one card at a time. While it runs, every unopened spot is a live market: list it, hit an offer, or buy the one still holding the chase — instant, zero fees.",
-    tech: "On-chain crank · 10 ms rollup blocks",
-  },
-  {
-    n: "04",
-    title: "Verified, settled, delivered",
-    body: "The seed goes public so anyone can re-run the shuffle. A Magic Action writes who gets each card to Solana in the same commit, and the cards land in winners' wallets.",
-    tech: "Magic Action · open verification",
-  },
+const HOW = [
+  { icon: "◎", title: "Take a spot", body: "Pick a live box and grab a spot in seconds. No wallet popups once you're set up." },
+  { icon: "✦", title: "Watch it rip", body: "Packs open live with the whole room. When it's your pack, you rip it yourself." },
+  { icon: "◆", title: "Keep what you pull", body: "Every card lands in your vault. Keep it, show it off, or sell it back instantly." },
 ];
 
-const STACK = [
-  { name: "Private Ephemeral Rollup", what: "The sealed Deck and every private USDC balance live in an Intel TDX enclave." },
-  { name: "VRF", what: "Unbiasable shuffle seed, delivered by callback straight into the sealed Deck." },
-  { name: "Crank", what: "The validator itself reveals each card on schedule. No server, no host button." },
-  { name: "Private Payments API", what: "Deposits into the TEE. Buyers pay hosts and sellers directly — the protocol never holds USDC." },
-  { name: "Magic Actions", what: "One commit unseals the result and records every card's new owner on Solana." },
-  { name: "Session keys", what: "One signature per session. Every buy, list and offer after that is silent and free." },
-];
+function FreshPulls({ list }: { list: ReturnType<typeof useBreakList>["list"] }) {
+  const pulls = useMemo(() => leaderboard(list).pulls.slice(0, 8), [list]);
+  const keys = useMemo(() => pulls.map((p) => new PublicKey(p.owner)), [pulls]);
+  const names = useNames(keys);
+  if (pulls.length === 0) return null;
+  return (
+    <section className="wrap section">
+      <div className="sec-head">
+        <h2 className="display">Fresh pulls</h2>
+        <a href="#/leaders" className="btn sm ghost">
+          Leaderboard →
+        </a>
+      </div>
+      <div className="pulls">
+        {pulls.map((p, i) => (
+          <a key={i} href={`#/break/${p.breakId}`} className="pull">
+            <PullImg b={list.find((x) => x.breakId === p.breakId)} card={p.card} />
+            <div className="pull-meta">
+              <span className={`tier-${p.tier}`}>{TIER_NAMES[p.tier]}</span>
+              <b className="mono">{usd(p.value, 0)}</b>
+            </div>
+            <div className="pull-who">pulled by {names(new PublicKey(p.owner))}</div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PullImg({ b, card }: { b?: ReturnType<typeof useBreakList>["list"][number]; card: number }) {
+  const cards = useCards(b?.cards);
+  const c = cards[card];
+  return c ? <img src={cardImage(faceOf(c))} alt={c.name} /> : <div className="skeleton" style={{ aspectRatio: "512/716", borderRadius: 10 }} />;
+}
 
 export default function Home() {
   const stats = useStats();
   const { list } = useBreakList(8_000);
-  const live = list.filter((b) => b.status === 1 || b.status === 2 || b.status === 3).slice(0, 3);
+  const live = list.filter((b) => b.status === 1 || b.status === 2 || b.status === 3).sort((a, b) => (b.status === 3 ? 1 : 0) - (a.status === 3 ? 1 : 0)).slice(0, 6);
   return (
     <div className="home">
       <section className="hero">
@@ -79,14 +86,14 @@ export default function Home() {
           </Suspense>
         </div>
         <div className="wrap hero-copy">
-          <div className="eyebrow">Live card breaks · Solana · MagicBlock</div>
+          <div className="eyebrow">Live card breaks</div>
           <h1 className="display">
             Card breaks
             <br />
             <span className="foil-text">you can verify.</span>
           </h1>
           <p className="lede">
-            Group breaks where the shuffle is sealed in hardware nobody can read — not even the host — and every spot trades live while the packs open.
+            Grab a spot in a box, watch it rip live with the room, and keep every card you pull. Changed your mind? Sell your spot before your pack opens.
           </p>
           <div className="hero-cta">
             <a href="#/breaks" className="btn primary lg">
@@ -109,10 +116,6 @@ export default function Home() {
               <b className="mono num">{stats ? usd(stats.primary + stats.secondary, 0) : "—"}</b>
               <span>spot volume</span>
             </div>
-            <div>
-              <b className="mono num">$0</b>
-              <span>held by BREAKROOM</span>
-            </div>
           </div>
         </div>
       </section>
@@ -120,7 +123,7 @@ export default function Home() {
       {live.length > 0 && (
         <section className="wrap section">
           <div className="sec-head">
-            <h2 className="display">Happening now</h2>
+            <h2 className="display">Live right now</h2>
             <a href="#/breaks" className="btn sm ghost">
               All breaks →
             </a>
@@ -133,66 +136,43 @@ export default function Home() {
         </section>
       )}
 
-      <section className="wrap section problem">
-        <div className="eyebrow">The problem</div>
-        <h2 className="display">A multi-billion-dollar hobby that runs on "trust me".</h2>
-        <div className="problem-grid">
-          <div className="panel q">
-            <p>Shill bidding. Pack contents leaked to favoured buyers in DMs. Faked pulls.</p>
-            <span className="faint">Accusations against some of the biggest breakers — MagicBlock Research, State of Onchain Collectibles</span>
-          </div>
-          <div className="panel q">
-            <p>Once you buy a spot you're stuck with it. Platforms ban reselling spots, and none let you trade one mid-break.</p>
-            <span className="faint">Whatnot, Fanatics Live spot rules</span>
-          </div>
-          <div className="panel q">
-            <p>Every outcome depends on one person with a camera and the box in their hands.</p>
-            <span className="faint">How breaks work today</span>
-          </div>
-        </div>
-      </section>
+      <FreshPulls list={list} />
 
       <section className="wrap section">
-        <div className="eyebrow">How a break works</div>
-        <h2 className="display">Four steps, none of them on trust.</h2>
-        <div className="steps">
-          {STEPS.map((s) => (
-            <div key={s.n} className="panel step">
-              <div className="step-n mono foil-text">{s.n}</div>
-              <h3>{s.title}</h3>
-              <p className="muted">{s.body}</p>
-              <span className="chip">{s.tech}</span>
+        <h2 className="display">How it works</h2>
+        <div className="how3">
+          {HOW.map((h, i) => (
+            <div key={h.title} className="panel how3-item">
+              <span className="how3-n mono">{i + 1}</span>
+              <span className="how3-ico">{h.icon}</span>
+              <h3>{h.title}</h3>
+              <p className="muted">{h.body}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section className="wrap section">
-        <div className="eyebrow">Under the hood</div>
-        <h2 className="display">Every piece of MagicBlock, doing a real job.</h2>
-        <div className="stack">
-          {STACK.map((s) => (
-            <div key={s.name} className="stack-item">
-              <span className="dotf" />
-              <div>
-                <b>{s.name}</b>
-                <p className="muted">{s.what}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <a href="#/how" className="panel fair-band">
+          <span className="fair-ico">✓</span>
+          <div>
+            <b>Fair, every single time</b>
+            <p className="muted">The box is locked before anyone buys, the shuffle is sealed so nobody can peek, and you can check any break after it ends.</p>
+          </div>
+          <span className="fair-go">How it's fair →</span>
+        </a>
       </section>
 
       <section className="wrap section final">
         <div className="panel final-in">
-          <h2 className="display">Rip something you can prove.</h2>
-          <p className="muted">The public test is open. Grab test USDC, take a spot, and watch the packs open in under a minute.</p>
+          <h2 className="display">Your next pull is one spot away.</h2>
+          <p className="muted">Free to try in the public test: test cards, test USDC, real excitement.</p>
           <div className="hero-cta" style={{ justifyContent: "center" }}>
             <a href="#/breaks" className="btn primary lg">
-              Browse breaks
+              Find a break
             </a>
-            <a href="#/how" className="btn lg ghost">
-              How the fairness works
+            <a href="#/host" className="btn lg ghost">
+              Host your own
             </a>
           </div>
         </div>

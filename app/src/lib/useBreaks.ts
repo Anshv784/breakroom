@@ -13,7 +13,7 @@ export function readerClient() {
 }
 
 const LIST_CACHE = "br-list-cache-v1";
-const keep = (b: BreakState) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|\[test\])/i.test(b.title);
+const keep = (b: BreakState) => (b.status !== 0 || b.deposited > 0) && !/^(probe|e2e|rip test|\[test\])/i.test(b.title);
 function cachedList(): BreakState[] {
   try {
     const raw = JSON.parse(localStorage.getItem(LIST_CACHE) || "[]") as string[];
