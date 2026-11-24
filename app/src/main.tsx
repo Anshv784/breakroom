@@ -1,3 +1,4 @@
+import "./polyfill";
 import { StrictMode, Suspense, lazy, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Buffer } from "buffer";

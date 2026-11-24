@@ -46,6 +46,7 @@ import {
   USDC_MINT,
   VRF_EPHEMERAL_QUEUE,
   VRF_PROGRAM,
+  IS_MAINNET,
 } from "./config";
 import { BREAK_LEN, decodeBids, decodeChat, decodeBreak, decodeCard, decodeDeck, decodeProfile, decodeReceipt, type BreakState } from "./layout";
 
@@ -72,6 +73,7 @@ export const vaultPda = (id: bigint) => pda([Buffer.from("vault"), u64le(id)]);
 export const deckPda = (id: bigint) => pda([Buffer.from("deck"), u64le(id)]);
 export const bidsPda = (id: bigint) => pda([Buffer.from("bids"), u64le(id)]);
 export const chatPda = (id: bigint) => pda([Buffer.from("chat"), u64le(id)]);
+let listConn: Connection | undefined;
 export const poolPda = () => pda([Buffer.from("pool")]);
 export const cardPda = (mint: PublicKey) => pda([Buffer.from("card"), mint.toBuffer()]);
 export const profilePda = (owner: PublicKey) => pda([Buffer.from("profile"), owner.toBuffer()]);
@@ -443,10 +445,14 @@ export class BreakroomClient {
   /** Every break ever created: their Receipts stay on Solana, owned by the program. */
   async listBreakIds(): Promise<bigint[]> {
     const disc = (idl as any).accounts.find((a: any) => a.name === "Receipt").discriminator as number[];
-    const accs = await this.base.getProgramAccounts(PROGRAM_ID, {
-      filters: [{ memcmp: { offset: 0, bytes: bs58encode(Uint8Array.from(disc)) } }],
-      dataSlice: { offset: 8, length: 8 },
-    });
+    const query = (conn: Connection) =>
+      conn.getProgramAccounts(PROGRAM_ID, {
+        filters: [{ memcmp: { offset: 0, bytes: bs58encode(Uint8Array.from(disc)) } }],
+        dataSlice: { offset: 8, length: 8 },
+      });
+    // this scan is slow on some RPCs: ask two and take whichever answers first
+    const conns = [this.base, ...(IS_MAINNET ? [] : [(listConn ??= new Connection("https://api.devnet.solana.com", "confirmed"))])];
+    const accs = await Promise.any(conns.map(query));
     return accs.map((a) => Buffer.from(a.account.data).readBigUInt64LE(0)).sort((a, b) => (a < b ? 1 : -1));
   }
 
@@ -467,6 +473,15 @@ export class BreakroomClient {
       });
     }
     this.lastBreaksRaw = raw;
+    return out;
+  }
+  /** Quick first paint: the copies on Solana (no TEE sign-in). Live breaks may lag a little here. */
+  async fetchBreaksBase(ids: bigint[]): Promise<BreakState[]> {
+    const out: BreakState[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const infos = await this.base.getMultipleAccountsInfo(ids.slice(i, i + 100).map(breakPda));
+      infos.forEach((info) => info && info.data.length === BREAK_LEN && out.push(decodeBreak(info.data)));
+    }
     return out;
   }
   /** Raw account data from the last fetchBreaks (lets the UI cache the lobby). */
