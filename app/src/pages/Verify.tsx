@@ -1,6 +1,7 @@
 // Verify a break in the browser, from chain data only. Nothing here trusts BREAKROOM's servers
 // (there are none): it re-derives the commitment, re-runs the shuffle from the public VRF seed and
 // checks every position, the opening order and the Solana Receipt.
+import "./verify.css";
 import { useEffect, useMemo, useState } from "react";
 import { readerClient, useCards, useNames } from "../lib/useBreaks";
 import { ST, type BreakState, type DeckState, type ReceiptState } from "../chain/layout";
@@ -123,13 +124,26 @@ export default function Verify({ id }: { id: bigint }) {
       <p className="muted" style={{ marginTop: 0 }}>
         Every check below runs in your browser on raw chain data. <a href={`#/break/${b.breakId}`} style={{ textDecoration: "underline" }}>Back to the table</a>
       </p>
-      <div className="panel" style={{ padding: 20, margin: "20px 0", borderColor: allOk ? "rgba(79,227,161,.4)" : undefined, background: allOk ? "linear-gradient(90deg,rgba(79,227,161,.08),transparent), var(--panel)" : undefined }}>
+      <div className={`panel verdict ${allOk ? "ok" : ""}`} style={{ padding: 20, margin: "20px 0", borderColor: allOk ? "rgba(79,227,161,.4)" : undefined, background: allOk ? "linear-gradient(90deg,rgba(79,227,161,.08),transparent), var(--panel)" : undefined }}>
+        {allOk && (
+          <svg className="seal" viewBox="0 0 100 100" aria-hidden>
+            <defs>
+              <path id="sealc" d="M50,50 m-36,0 a36,36 0 1,1 72,0 a36,36 0 1,1 -72,0" />
+            </defs>
+            <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3" />
+            <circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <text fontSize="9" letterSpacing="2.6" fill="currentColor" fontFamily="JetBrains Mono, monospace">
+              <textPath href="#sealc">VERIFIED · VRF · SEALED · ON-CHAIN ·</textPath>
+            </text>
+            <path d="M38 51 l8 8 l16 -18" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
         <div style={{ fontSize: 20, fontWeight: 700 }}>{allOk ? "✓ This break was fair." : b.status < ST.ENDED ? "◐ Still running — partially verifiable" : "Some checks didn't pass"}</div>
         <div className="muted" style={{ fontSize: 14 }}>{allOk ? "The box didn't change after listing, nobody chose the shuffle, and every card went to the spot that pulled it." : "Checks that need the sealed shuffle unlock when the last card is out."}</div>
       </div>
       <div style={{ display: "grid", gap: 10 }}>
-        {result!.checks.map((c) => (
-          <div key={c.label} className="panel" style={{ padding: 16, display: "grid", gridTemplateColumns: "32px 1fr", gap: 12 }}>
+        {result!.checks.map((c, ci) => (
+          <div key={c.label} className="panel vcheck" style={{ ["--i" as any]: ci, padding: 16, display: "grid", gridTemplateColumns: "32px 1fr", gap: 12 }}>
             <div className="mono" style={{ width: 28, height: 28, borderRadius: 999, display: "grid", placeItems: "center", background: c.ok ? "rgba(79,227,161,.15)" : c.ok === false ? "rgba(255,107,107,.15)" : "rgba(255,255,255,.06)", color: c.ok ? "var(--up)" : c.ok === false ? "var(--down)" : "var(--text-3)" }}>
               {c.ok ? "✓" : c.ok === false ? "✗" : "…"}
             </div>

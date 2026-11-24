@@ -1,0 +1,36 @@
+.verdict {
+  position: relative;
+  overflow: hidden;
+  padding-right: 130px !important;
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.seal {
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  width: 80px;
+  height: 80px;
+  margin-top: -40px;
+  overflow: visible;
+  color: var(--up);
+  opacity: 0.9;
+  transform: rotate(-12deg);
+  animation: sealIn 0.7s var(--ease) both, sealSpin 40s linear 0.7s infinite;
+  filter: drop-shadow(0 0 12px rgba(79, 227, 161, 0.35));
+}
+@keyframes sealIn {
+  from { opacity: 0; transform: rotate(-30deg) scale(1.6); }
+}
+@keyframes sealSpin {
+  to { transform: rotate(348deg); }
+}
+.vcheck {
+  animation: vIn 0.45s var(--ease) both;
+  animation-delay: calc(var(--i) * 0.12s + 0.1s);
+}
+@keyframes vIn {
+  from { opacity: 0; transform: translateY(8px); }
+}

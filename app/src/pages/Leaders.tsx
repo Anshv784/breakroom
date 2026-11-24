@@ -1,5 +1,6 @@
 // Leaderboard: collectors by profit, biggest pulls, and host reputation — all computed from the
 // breaks on chain (no indexer).
+import "./leaders.css";
 import { useMemo } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useBreakList, useCards, useNames } from "../lib/useBreaks";
@@ -38,8 +39,11 @@ export default function Leaders() {
           {top.map((p, i) => {
             const c = topCards[i];
             return (
-              <a key={`${p.breakId}-${p.card}`} href={`#/break/${p.breakId}`} style={{ display: "grid", gap: 6 }}>
-                {c ? <img src={cardImage(faceOf(c))} alt={c.name} style={{ width: "100%", borderRadius: 8, boxShadow: `0 16px 40px -18px ${TIER_COLORS[p.tier]}` }} /> : <div className="skeleton" style={{ aspectRatio: "512/716" }} />}
+              <a key={`${p.breakId}-${p.card}`} href={`#/break/${p.breakId}`} className={`bp ${i === 0 ? "first" : ""}`} style={{ display: "grid", gap: 6, ["--tint" as any]: TIER_COLORS[p.tier], ["--d" as any]: `${i * 0.7}s` }}>
+                <span className="bp-frame">
+                  {c ? <img src={cardImage(faceOf(c))} alt={c.name} style={{ width: "100%", display: "block", borderRadius: 8, boxShadow: `0 16px 40px -18px ${TIER_COLORS[p.tier]}` }} /> : <div className="skeleton" style={{ aspectRatio: "512/716" }} />}
+                  <i className="bp-sheen" />
+                </span>
                 <div style={{ fontSize: 12, display: "flex", justifyContent: "space-between" }}>
                   <span className={`mono tier-${p.tier}`}>{TIER_NAMES[p.tier]}</span>
                   <span className="mono">{usd(p.value, 0)}</span>
@@ -70,8 +74,8 @@ export default function Leaders() {
               </thead>
               <tbody>
                 {collectors.slice(0, 25).map((c, i) => (
-                  <tr key={c.key} style={{ borderTop: "1px solid var(--line)", textAlign: "right", background: c.key === me ? "rgba(79,227,161,.06)" : undefined }}>
-                    <td style={{ textAlign: "left", padding: 8 }} className="faint">{i + 1}</td>
+                  <tr key={c.key} className={i < 3 ? `podium p${i + 1}` : undefined} style={{ borderTop: "1px solid var(--line)", textAlign: "right", background: c.key === me ? "rgba(79,227,161,.06)" : undefined }}>
+                    <td style={{ textAlign: "left", padding: 8 }} className="faint">{i < 3 ? <span className="medal">{i + 1}</span> : i + 1}</td>
                     <td style={{ textAlign: "left", fontFamily: "var(--sans)", fontWeight: 600 }}>{n(c.key)}{c.key === me ? <span className="up"> · you</span> : null}</td>
                     <td>{usd(c.spent, 0)}</td>
                     <td>{usd(c.pulled, 0)}</td>

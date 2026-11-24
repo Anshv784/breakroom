@@ -404,3 +404,23 @@
     justify-self: center;
   }
 }
+
+/* chase banner in the market: soft breathing glow + sheen on the thumbnail */
+.chase-row {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 30px -16px rgba(255, 95, 168, 0.8);
+}
+.chase-row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.07) 50%, transparent 60%);
+  transform: translateX(-120%);
+  animation: chaseSheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes chaseSheen {
+  0%, 70% { transform: translateX(-120%); }
+  90%, 100% { transform: translateX(120%); }
+}
