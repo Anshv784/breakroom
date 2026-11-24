@@ -9,7 +9,7 @@ import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
 import { oddsFor } from "../lib/breakmath";
 import { shareCard } from "../lib/share";
 
-import { Intro } from "../ui/Intro";
+import { ConnectGate } from "../ui/ConnectGate";
 import { ActivityList, Empty, HistoryList, HostingList, SpotsList, useVaultData } from "./VaultSections";
 import "./vault.css";
 
@@ -57,23 +57,7 @@ export default function Vault() {
 
   if (!c)
     return (
-      <Intro
-        eyebrow="Your vault"
-        title="Everything you pulled, in one place."
-        sub="Your private balance, the spots you hold in running breaks, cards waiting for delivery and your whole collection, each card viewable as a graded slab in 3D."
-        action={
-          <>
-            <button className="btn primary lg" onClick={() => s.setConnect(true)}>Connect your wallet</button>
-            <a href="#/breaks" className="btn lg ghost">Browse breaks</a>
-          </>
-        }
-        note="Public test: balances are test USDC and cards are Genesis test cards."
-        points={[
-          { title: "A balance only you can read", body: "Your USDC sits in a private balance inside MagicBlock's TEE. Deposit or withdraw to your wallet any time." },
-          { title: "Spots with live odds", body: "Every spot you hold shows its chance at the chase and its expected value, updated with each card." },
-          { title: "Cards you actually own", body: "Pulls are delivered to your wallet on Solana. Keep them, share the pull, or sell one back instantly for 85% of its appraisal." },
-        ]}
-      />
+      <ConnectGate title="Your vault" sub="Connect a wallet to see your balance, spots and cards." />
     );
 
   const deliver = async (id: bigint, rc: ReceiptState, idx: number[]) => {

@@ -1,0 +1,132 @@
+.gate {
+  min-height: calc(100vh - 64px);
+  display: grid;
+  place-items: center;
+  padding: 48px 20px;
+  background: radial-gradient(520px 380px at 50% 38%, rgba(181, 140, 255, 0.1), transparent 70%);
+}
+.gate-panel {
+  width: min(440px, 100%);
+  padding: 34px 30px 22px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line-2);
+  box-shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.95);
+  text-align: center;
+}
+.gate-art {
+  position: relative;
+  height: 118px;
+  margin-bottom: 18px;
+}
+.gate-art img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72px;
+  aspect-ratio: 512 / 716;
+  border-radius: 7px;
+  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, 0.9);
+}
+.gate-art .g0 {
+  transform: translate(-50%, -50%) translate(-44px, 8px) rotate(-12deg) scale(0.9);
+}
+.gate-art .g1 {
+  transform: translate(-50%, -50%) rotate(-1deg);
+  z-index: 2;
+}
+.gate-art .g2 {
+  transform: translate(-50%, -50%) translate(44px, 8px) rotate(11deg) scale(0.9);
+}
+.gate-panel h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+.gate-panel > p {
+  margin: 0 0 24px;
+  font-size: 15px;
+}
+.gate-list {
+  display: grid;
+  gap: 8px;
+}
+.gate-row {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: 58px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-2);
+  font-weight: 600;
+  font-size: 15.5px;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s var(--ease);
+}
+.gate-row img {
+  border-radius: 7px;
+}
+.gate-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(181, 140, 255, 0.5);
+  transform: translateY(-1px);
+}
+.gate-row:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.gate-row.primary {
+  background: var(--foil);
+  color: #0b0910;
+  border-color: transparent;
+  box-shadow: 0 16px 40px -14px rgba(181, 140, 255, 0.7);
+}
+.gate-row.primary .gate-ico {
+  background: rgba(0, 0, 0, 0.12);
+  color: #0b0910;
+}
+.gate-ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.gate-go {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.gate-go i {
+  font-style: normal;
+}
+.gate-hint {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 6px;
+}
+.gate-foot {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.gate-foot .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 6px;
+  background: var(--warn);
+}
