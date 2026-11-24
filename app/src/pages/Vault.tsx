@@ -10,6 +10,8 @@ import { oddsFor } from "../lib/breakmath";
 import { shareCard } from "../lib/share";
 
 import { Intro } from "../ui/Intro";
+import { ActivityList, Empty, HistoryList, HostingList, SpotsList, useVaultData } from "./VaultSections";
+import "./vault.css";
 
 const SlabViewer = lazy(() => import("../scene/SlabViewer"));
 
@@ -48,15 +50,10 @@ export default function Vault() {
     };
   }, [list.length, c?.me.toBase58()]);
 
-  const mySpots = useMemo(() => {
-    if (!c) return [];
-    return list
-      .filter((b) => b.status >= ST.SELLING && b.status <= ST.LIVE)
-      .flatMap((b) => {
-        const odds = oddsFor(b);
-        return b.spotOwner.map((o, i) => (o?.equals(c.me) ? { b, i, ev: odds[i].ev, chase: odds[i].chaseOdds } : null)).filter(Boolean) as { b: typeof list[number]; i: number; ev: number; chase: number }[];
-      });
-  }, [list, c?.me.toBase58()]);
+
+  const data = useVaultData(list, c?.me);
+  const [tab, setTab] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (!c)
     return (
@@ -94,93 +91,147 @@ export default function Vault() {
   };
 
   const total = (cards ?? []).reduce((a, x) => a + x.value, 0n);
+  const name = s.profile?.name ?? shortKey(c.me);
+  const lockedValue = (data?.locked ?? []).reduce((a, b) => a + b.boxValue, 0n);
+  const pnl = data?.mine ? data.mine.profit : 0;
+  const best = data?.mine?.best;
+  const tabs = [
+    { key: "spots", label: "Open spots", n: data?.spots.length ?? 0 },
+    { key: "cards", label: "Collection", n: cards?.length ?? 0 },
+    { key: "hosting", label: "Hosting", n: data?.hosted.length ?? 0 },
+    { key: "history", label: "History", n: data?.history.length ?? 0 },
+    { key: "activity", label: "Activity", n: data?.activity.length ?? 0 },
+  ];
+  const active = tab ?? (data && data.spots.length > 0 ? "spots" : "cards");
   return (
-    <div className="wrap" style={{ padding: "40px 24px 80px" }}>
-      <div className="eyebrow">Vault</div>
-      <h1 className="display" style={{ fontSize: 34, margin: "8px 0 24px" }}>{s.profile?.name ?? shortKey(c.me)}</h1>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="eyebrow">Private balance</div>
-          <div className="mono" style={{ fontSize: 28, fontWeight: 600, margin: "6px 0" }}>{usd(s.privateUsdc)}</div>
-          <div className="faint" style={{ fontSize: 12 }}>Inside MagicBlock's TEE. Only you can read it.</div>
-          <button className="btn sm" style={{ marginTop: 12 }} onClick={() => s.setOnboard(true)}>Deposit / withdraw</button>
-        </div>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="eyebrow">Wallet</div>
-          <div className="mono" style={{ fontSize: 28, fontWeight: 600, margin: "6px 0" }}>{usd(s.baseUsdc)}</div>
-          <div className="faint" style={{ fontSize: 12 }}>{s.sol.toFixed(3)} SOL on Solana</div>
-        </div>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="eyebrow">Collection</div>
-          <div className="mono" style={{ fontSize: 28, fontWeight: 600, margin: "6px 0" }}>{usd(total, 0)}</div>
-          <div className="faint" style={{ fontSize: 12 }}>{cards?.length ?? 0} appraised cards</div>
-        </div>
-        <div className="panel" style={{ padding: 20 }}>
-          <div className="eyebrow">Trading</div>
-          <div className="mono" style={{ fontSize: 28, fontWeight: 600, margin: "6px 0" }}>{s.profile ? s.profile.spotsBought + s.profile.trades : 0}</div>
-          <div className="faint" style={{ fontSize: 12 }}>
-            spent {usd(s.profile?.spent ?? 0n, 0)} · earned {usd(s.profile?.earned ?? 0n, 0)}
+    <div className="wrap vault">
+      <header className="v-head-block">
+        <div className="v-avatar">{name.slice(0, 1).toUpperCase()}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="eyebrow">Your vault</div>
+          <h1 className="display">{name}</h1>
+          <div className="v-meta">
+            <button
+              className="v-addr mono"
+              onClick={() => {
+                navigator.clipboard?.writeText(c.me.toBase58());
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1200);
+              }}
+              title="Copy address"
+            >
+              {shortKey(c.me)} {copied ? "· copied" : "⧉"}
+            </button>
+            <a href={`https://explorer.solana.com/address/${c.me.toBase58()}?cluster=devnet`} target="_blank" rel="noreferrer">
+              Explorer ↗
+            </a>
+            <span>{data?.history.length ?? 0} breaks finished</span>
+            <span>{data?.hosted.length ?? 0} hosted</span>
+            {best && (
+              <span>
+                best pull <b className={`tier-${data?.myPulls.find((p) => p.card === best.card && p.breakId === best.breakId)?.tier ?? 0}`}>{usd(best.value, 0)}</b>
+              </span>
+            )}
           </div>
-          {!r.ready && <button className="btn sm primary" style={{ marginTop: 12 }} onClick={() => s.setOnboard(true)}>Get ready</button>}
+        </div>
+        {!r.ready && (
+          <button className="btn primary" style={{ marginLeft: "auto" }} onClick={() => s.setOnboard(true)}>
+            Finish setup
+          </button>
+        )}
+      </header>
+
+      <div className="v-stats">
+        <div className="panel v-stat">
+          <div className="eyebrow">Private balance</div>
+          <b className="mono">{s.locked ? "••••" : usd(s.privateUsdc)}</b>
+          <span className="faint">Inside MagicBlock's TEE. Only you can read it.</span>
+          <button className="btn sm" onClick={() => (s.locked ? s.unlock() : s.setOnboard(true))}>{s.locked ? "Show balance" : "Deposit / withdraw"}</button>
+        </div>
+        <div className="panel v-stat">
+          <div className="eyebrow">Wallet on Solana</div>
+          <b className="mono">{usd(s.baseUsdc)}</b>
+          <span className="faint">{s.sol.toFixed(3)} SOL for fees</span>
+        </div>
+        <div className="panel v-stat">
+          <div className="eyebrow">Collection</div>
+          <b className="mono">{usd(total, 0)}</b>
+          <span className="faint">
+            {cards?.length ?? 0} card{cards?.length === 1 ? "" : "s"} in your wallet
+            {lockedValue > 0n ? ` · ${usd(lockedValue, 0)} locked in your breaks` : ""}
+          </span>
+        </div>
+        <div className="panel v-stat">
+          <div className="eyebrow">All-time result</div>
+          <b className={`mono ${pnl >= 0 ? "up" : "down"}`}>
+            {pnl >= 0 ? "+" : "−"}
+            {usd(Math.abs(pnl), 0)}
+          </b>
+          <span className="faint">
+            pulled {usd(data?.mine?.pulled ?? 0, 0)} · sold {usd(data?.mine?.earned ?? 0, 0)} · spent {usd(data?.mine?.spent ?? 0, 0)}
+          </span>
         </div>
       </div>
 
       {owed.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <h2 className="display" style={{ fontSize: 22 }}>Waiting for delivery</h2>
-          <div style={{ display: "grid", gap: 10 }}>
-            {owed.map((o) => (
-              <div key={o.id.toString()} className="panel" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div>
-                  <b>{o.title}</b>
-                  <div className="faint" style={{ fontSize: 13 }}>{o.idx.length} card{o.idx.length === 1 ? "" : "s"} settled to you on Solana, still in the vault</div>
+        <section className="v-owed">
+          {owed.map((o) => (
+            <div key={o.id.toString()} className="panel v-owed-row">
+              <div>
+                <div className="eyebrow" style={{ color: "var(--up)" }}>Ready to deliver</div>
+                <b>{o.title}</b>
+                <div className="faint" style={{ fontSize: 13 }}>
+                  {o.idx.length} card{o.idx.length === 1 ? "" : "s"} settled to you on Solana, waiting in the break's vault
                 </div>
-                <button className="btn primary" disabled={busy} onClick={() => deliver(o.id, o.receipt, o.idx)}>Send to my wallet</button>
               </div>
-            ))}
-          </div>
+              <button className="btn primary" disabled={busy} onClick={() => deliver(o.id, o.receipt, o.idx)}>
+                Send to my wallet
+              </button>
+            </div>
+          ))}
         </section>
       )}
 
-      {mySpots.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <h2 className="display" style={{ fontSize: 22 }}>Your spots</h2>
-          <div style={{ display: "grid", gap: 8 }}>
-            {mySpots.map(({ b, i, ev, chase }) => (
-              <a key={`${b.breakId}-${i}`} href={`#/break/${b.breakId}`} className="panel" style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 18, alignItems: "center" }}>
-                <span>
-                  <b>{b.title}</b> <span className="faint">spot #{i + 1}</span>
-                </span>
-                <span className="mono">paid {usd(b.spotCost[i])}</span>
-                <span className={`mono ${ev * 1e6 >= Number(b.spotCost[i]) ? "up" : "down"}`}>worth {usd(ev)}</span>
-                <span className="mono faint">chase {chase ? `${(chase * 100).toFixed(0)}%` : "—"}</span>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
+      <div className="v-tabs">
+        {tabs.map((t) => (
+          <button key={t.key} className={active === t.key ? "on" : ""} onClick={() => setTab(t.key)}>
+            {t.label}
+            <span className="mono">{t.n}</span>
+          </button>
+        ))}
+      </div>
 
-      <section style={{ marginTop: 32 }}>
-        <h2 className="display" style={{ fontSize: 22 }}>Your cards</h2>
-        {cards === null ? (
-          <div className="skeleton" style={{ height: 200 }} />
+      {active === "spots" && data && <SpotsList spots={data.spots} />}
+      {active === "hosting" && data && <HostingList hosted={data.hosted} />}
+      {active === "history" && data && <HistoryList history={data.history} />}
+      {active === "activity" && data && <ActivityList activity={data.activity} me={c.me} />}
+      {active === "cards" &&
+        (cards === null ? (
+          <div className="skeleton" style={{ height: 240, borderRadius: 18 }} />
         ) : cards.length === 0 ? (
-          <p className="faint">No cards yet. Win some in a break, or grab a demo box in the host studio.</p>
+          <Empty
+            title="No cards in your wallet"
+            body={
+              lockedValue > 0n
+                ? `Your cards are locked in ${data!.locked.length === 1 ? "a break" : "breaks"} you're hosting (${usd(lockedValue, 0)}). They go to spot holders when the break ends; unsold spots come back to you.`
+                : "Pull some in a break, or grab 12 free Genesis test cards in the host studio."
+            }
+            cta={lockedValue > 0n ? ["See your breaks", () => setTab("hosting")] : ["Find a break", "#/breaks"]}
+          />
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 16 }}>
+          <div className="v-cards">
             {[...cards].sort((a, b) => Number(b.value - a.value)).map((x) => (
-              <button key={x.mint.toBase58()} onClick={() => setOpen(x)} style={{ all: "unset", cursor: "pointer", display: "grid", gap: 6 }}>
-                <img src={cardImage(faceOf(x))} alt={x.name} style={{ width: "100%", borderRadius: 8, boxShadow: "0 16px 40px -18px rgba(0,0,0,.9)" }} />
-                <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+              <button key={x.mint.toBase58()} className="v-card" onClick={() => setOpen(x)}>
+                <img src={cardImage(faceOf(x))} alt={x.name} />
+                <span className="v-card-meta">
                   <span className={`tier-${x.tier} mono`}>{TIER_NAMES[x.tier]}</span>
                   <span className="mono">{usd(x.value, 0)}</span>
                 </span>
+                <span className="v-card-name">{x.name}</span>
               </button>
             ))}
           </div>
-        )}
-      </section>
+        ))}
 
       {open && (
         <div className="scrim" onClick={() => setOpen(null)}>

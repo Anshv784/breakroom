@@ -54,6 +54,7 @@ export function BreakCard({ b, rep }: { b: BreakState; rep?: { verified: number 
         <div className="bcard-top">
           <StatusChip status={b.status} />
           {b.sale === 1 && <span className="chip sale mini">Auction</span>}
+          {b.sale === 2 && b.status === 1 && <span className="chip mini">Auction closed</span>}
           {b.mode === 1 && <span className="chip mini">Teams</span>}
         </div>
         <div className="bcard-title">{b.title || "Untitled break"}</div>

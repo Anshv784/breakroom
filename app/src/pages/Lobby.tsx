@@ -44,6 +44,7 @@ function Featured({ b, list }: { b: BreakState; list: BreakState[] }) {
         <div className="feat-top">
           <StatusChip status={b.status} />
           {b.sale === 1 && <span className="chip sale">Sealed auction</span>}
+          {b.sale === 2 && b.status === ST.SELLING && <span className="chip">Auction closed · leftovers on sale</span>}
           {b.mode === 1 && <span className="chip">Random teams</span>}
           <span className="faint" style={{ fontSize: 13 }}>
             hosted by <b style={{ color: "var(--text)" }}>{name(b.host)}</b>
