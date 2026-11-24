@@ -34,43 +34,10 @@ function useStats() {
 }
 
 const HOW = [
-  { title: "Take a spot", body: "Pick a live box and grab a spot in seconds. No wallet popups once you're set up." },
-  { title: "Watch it rip", body: "Packs open live with the whole room. When it's your pack, you rip it yourself." },
-  { title: "Keep what you pull", body: "Every card lands in your vault. Keep it, show it off, or sell it back instantly." },
+  { icon: "◎", title: "Take a spot", body: "Pick a live box and grab a spot in seconds. No wallet popups once you're set up." },
+  { icon: "✦", title: "Watch it rip", body: "Packs open live with the whole room. When it's your pack, you rip it yourself." },
+  { icon: "◆", title: "Keep what you pull", body: "Every card lands in your vault. Keep it, show it off, or sell it back instantly." },
 ];
-
-/** Small product illustrations for the three steps, built from the room's own pieces. */
-function HowArt({ i }: { i: number }) {
-  const pack = useMemo(() => (packTexture(1, 4).image as HTMLCanvasElement).toDataURL(), []);
-  const card = useMemo(() => cardImage({ name: "Glacier Maw", set: "Genesis", tier: 3, grade: 95, art: 6, value: 176_000_000n }), []);
-  if (i === 0)
-    return (
-      <div className="ha ha-spots">
-        <span>
-          <i>03</i> open <em>$40</em>
-        </span>
-        <span className="me">
-          <i>04</i> You <em>✓</em>
-        </span>
-        <span>
-          <i>05</i> open <em>$40</em>
-        </span>
-      </div>
-    );
-  if (i === 1)
-    return (
-      <div className="ha ha-pack">
-        <div className="hp-body" style={{ backgroundImage: `url(${pack})` }} />
-        <div className="hp-top" style={{ backgroundImage: `url(${pack})` }} />
-      </div>
-    );
-  return (
-    <div className="ha ha-card">
-      <img src={card} alt="" />
-      <span className="mono">+$176</span>
-    </div>
-  );
-}
 
 function FreshPulls({ list }: { list: ReturnType<typeof useBreakList>["list"] }) {
   const pulls = useMemo(() => leaderboard(list).pulls.slice(0, 8), [list]);
@@ -196,6 +163,7 @@ function RipShowcase() {
             <div className="rs-body" style={{ backgroundImage: `url(${pack})` }} />
             <div className="rs-top" style={{ backgroundImage: `url(${pack})` }} />
             <div className="rs-card" style={{ backgroundImage: `url(${card})` }} />
+            <div className="rs-hand">☝</div>
           </div>
         </div>
       </div>
@@ -339,7 +307,8 @@ export default function Home() {
         <div className="how3">
           {HOW.map((h, i) => (
             <div key={h.title} className="panel how3-item">
-              <HowArt i={i} />
+              <span className="how3-n mono">{i + 1}</span>
+              <span className="how3-ico">{h.icon}</span>
               <h3>{h.title}</h3>
               <p className="muted">{h.body}</p>
             </div>

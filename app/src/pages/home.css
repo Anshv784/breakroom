@@ -275,7 +275,7 @@
   box-shadow: 0 12px 30px -12px rgba(181, 140, 255, 0.7);
 }
 .how3-item h3 {
-  margin: 18px 0 8px;
+  margin: 20px 0 8px;
   font-size: 19px;
 }
 .how3-item p {
@@ -592,91 +592,4 @@
   .boards {
     grid-template-columns: 1fr;
   }
-}
-
-/* step illustrations */
-.ha {
-  height: 104px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--line);
-  position: relative;
-  overflow: hidden;
-}
-.ha-spots {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-}
-.ha-spots span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: 150px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  color: var(--text-3);
-  background: rgba(10, 8, 14, 0.8);
-  border: 1px solid var(--line);
-}
-.ha-spots i {
-  font-style: normal;
-  font-family: var(--mono);
-  font-size: 10.5px;
-}
-.ha-spots em {
-  font-style: normal;
-  margin-left: auto;
-  font-family: var(--mono);
-  color: var(--up);
-}
-.ha-spots .me {
-  color: var(--text);
-  border-color: rgba(79, 227, 161, 0.55);
-  transform: scale(1.06);
-}
-.ha-pack .hp-body,
-.ha-pack .hp-top {
-  position: absolute;
-  left: 50%;
-  width: 62px;
-  margin-left: -31px;
-  background-size: 62px 92px;
-  border-radius: 2px;
-}
-.ha-pack .hp-body {
-  top: 22px;
-  height: 82px;
-  background-position: 0 -10px;
-}
-.ha-pack .hp-top {
-  top: 12px;
-  height: 10px;
-  background-position: 0 0;
-  transform-origin: 0 100%;
-  transform: rotate(-16deg) translate(4px, -3px);
-}
-.ha-card {
-  display: grid;
-  place-items: center;
-}
-.ha-card img {
-  width: 58px;
-  border-radius: 5px;
-  transform: rotate(-6deg) translateY(10px);
-  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.8);
-}
-.ha-card span {
-  position: absolute;
-  right: 22%;
-  top: 22px;
-  font-size: 12px;
-  color: var(--up);
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(79, 227, 161, 0.12);
-  border: 1px solid rgba(79, 227, 161, 0.4);
 }
