@@ -6,7 +6,7 @@ import { useBreakList, useCards, useNames } from "../lib/useBreaks";
 import { leaderboard } from "../lib/rep";
 import { cardImage, faceOf, TIER_NAMES } from "../lib/art";
 import { packTexture } from "../scene/textures";
-import { BreakCard } from "../ui/BreakCard";
+import { BreakTile } from "../ui/BreakTile";
 import { hostRep } from "../lib/rep";
 import "./home.css";
 
@@ -288,9 +288,9 @@ export default function Home() {
               All breaks →
             </a>
           </div>
-          <div className="break-grid">
+          <div className="l2-grid">
             {live.map((b) => (
-              <BreakCard key={b.breakId.toString()} b={b} rep={hostRep(list, b.host)} />
+              <BreakTile key={b.breakId.toString()} b={b} verified={hostRep(list, b.host).verified} />
             ))}
           </div>
         </section>
