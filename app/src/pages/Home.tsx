@@ -248,6 +248,7 @@ function PullImg({ b, card }: { b?: ReturnType<typeof useBreakList>["list"][numb
 export default function Home() {
   const stats = useStats();
   const { list } = useBreakList(8_000);
+  const lastProof = useMemo(() => [...list].filter((b) => b.status >= 4 && b.status !== 6).sort((a, b) => b.endedAt - a.endedAt)[0], [list]);
   const live = list.filter((b) => b.status === 1 || b.status === 2 || b.status === 3).sort((a, b) => (b.status === 3 ? 1 : 0) - (a.status === 3 ? 1 : 0)).slice(0, 6);
   return (
     <div className="home">
@@ -333,14 +334,19 @@ export default function Home() {
       <Boards list={list} />
 
       <section className="wrap section">
-        <a href="#/how" className="panel fair-band">
-          <span className="fair-ico">✓</span>
+        <div className="panel fair-band">
           <div>
             <b>Fair, every single time</b>
             <p className="muted">The box is locked before anyone buys, the shuffle is sealed so nobody can peek, and you can check any break after it ends.</p>
           </div>
-          <span className="fair-go">How it's fair →</span>
-        </a>
+          {lastProof && (
+            <a href={`#/verify/${lastProof.breakId}`} className="fair-proof">
+              <span className="faint">Latest proof · {lastProof.title}</span>
+              <code>{Array.from(lastProof.commitment.slice(0, 6), (x) => x.toString(16).padStart(2, "0")).join("")}…</code>
+              <span className="fair-go">Check it →</span>
+            </a>
+          )}
+        </div>
       </section>
 
       <section className="wrap section final">
