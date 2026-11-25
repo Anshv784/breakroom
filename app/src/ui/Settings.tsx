@@ -138,6 +138,17 @@ export function SettingsPanel() {
         </section>
 
         <section>
+          <div className="set-h">Pull Clips</div>
+          <div className="set-row">
+            <div>
+              <b>Record my rips</b>
+              <span>A short video of your pack opening, made in your browser, ready to share</span>
+            </div>
+            <Toggle on={s.clips} onChange={(v) => settings.set({ clips: v })} label="Pull Clips" />
+          </div>
+        </section>
+
+        <section>
           <div className="set-h">Display</div>
           <div className="set-row">
             <div>

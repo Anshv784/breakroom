@@ -424,3 +424,38 @@
   0%, 70% { transform: translateX(-120%); }
   90%, 100% { transform: translateX(120%); }
 }
+
+.clip-pop {
+  width: min(640px, 100%);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 26px;
+  align-items: center;
+  border-radius: 26px;
+  animation: bannerIn 0.45s var(--ease);
+}
+.clip-pop video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: 0 24px 50px -16px rgba(0, 0, 0, 0.9);
+}
+.clip-pop h2 {
+  margin: 6px 0 2px;
+  font-size: 28px;
+}
+.clip-pop p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .clip-pop {
+    grid-template-columns: 1fr;
+  }
+  .clip-pop video {
+    width: 60%;
+    justify-self: center;
+  }
+}

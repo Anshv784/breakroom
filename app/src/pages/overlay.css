@@ -1,0 +1,289 @@
+/* Transparent page for OBS: nothing but the overlay, readable at stream size. */
+html.ov-mode,
+html.ov-mode body {
+  background: transparent !important;
+}
+html.ov-mode body::before,
+html.ov-mode body::after {
+  display: none !important;
+}
+.ov {
+  position: fixed;
+  inset: 0;
+  font-family: var(--sans);
+  color: #fff;
+  pointer-events: none;
+}
+.ov-head {
+  position: absolute;
+  left: 36px;
+  top: 32px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  max-width: 560px;
+}
+.ov-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+}
+.ov-title {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 30px;
+  margin: 8px 0 10px;
+  line-height: 1.1;
+}
+.ov-proof {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--up);
+}
+.ov-hash {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.ov-progress {
+  position: absolute;
+  right: 36px;
+  top: 32px;
+  padding: 16px 22px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ov-progress span {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.ov-progress b {
+  font-family: var(--mono);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+}
+.ov-progress b i {
+  font-style: normal;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ov-progress em {
+  font-style: normal;
+  font-size: 14px;
+  margin-top: 4px;
+}
+/* the card that just came out */
+.ov-pop {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 20px 30px 20px 20px;
+  border-radius: 24px;
+  background: rgba(9, 8, 11, 0.88);
+  border: 2px solid var(--tc);
+  box-shadow: 0 0 80px -16px var(--tc);
+  animation: ovIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), ovOut 0.4s 3.4s ease-in forwards;
+}
+.ov-pop img {
+  width: 190px;
+  border-radius: 12px;
+  transform: rotate(-3deg);
+}
+.ov-pop.big img {
+  width: 240px;
+}
+.ov-pop-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-tier {
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  color: var(--tc);
+  font-weight: 700;
+}
+.ov-pop-info b {
+  font-family: var(--display);
+  font-size: 40px;
+  line-height: 1.05;
+}
+.ov-pop.big .ov-pop-info b {
+  font-size: 52px;
+}
+.ov-val {
+  font-family: var(--mono);
+  font-size: 32px;
+  color: var(--up);
+}
+.ov-owner {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+}
+@keyframes ovIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.92);
+  }
+}
+@keyframes ovOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -54%) scale(0.98);
+  }
+}
+.ov-ripping {
+  position: absolute;
+  left: 50%;
+  bottom: 200px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: rgba(9, 8, 11, 0.85);
+  border: 1px solid rgba(255, 210, 122, 0.55);
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ov-ripping i {
+  width: 10px;
+  height: 10px;
+  border-radius: 10px;
+  background: #ffd27a;
+  box-shadow: 0 0 12px #ffd27a;
+}
+/* spots */
+.ov-spots {
+  position: absolute;
+  left: 36px;
+  right: 270px;
+  bottom: 32px;
+  display: grid;
+  gap: 8px;
+}
+.ov-spot {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(9, 8, 11, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ov-spot.up {
+  border-color: #ffd27a;
+  box-shadow: 0 0 24px -6px rgba(255, 210, 122, 0.8);
+}
+.ov-spot.won {
+  border-color: var(--tier-4);
+}
+.ov-n {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ov-spot b {
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-odds {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ov-spot.won .ov-odds {
+  color: var(--tier-4);
+  font-weight: 700;
+}
+.ov-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
+  overflow: hidden;
+}
+.ov-bar div {
+  height: 100%;
+  background: var(--tier-4);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+/* join */
+.ov-join {
+  position: absolute;
+  right: 36px;
+  bottom: 32px;
+  width: 214px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.ov-qr {
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  box-sizing: content-box;
+}
+.ov-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ov-join b {
+  display: block;
+  font-size: 17px;
+}
+.ov-join span {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.ov-join code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--foil-a);
+}
+html.ov-mode #root {
+  background: transparent !important;
+}

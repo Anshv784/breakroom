@@ -23,6 +23,7 @@ const Vault = lazy(() => import("./pages/Vault"));
 const Verify = lazy(() => import("./pages/Verify"));
 const How = lazy(() => import("./pages/How"));
 const Leaders = lazy(() => import("./pages/Leaders"));
+const Overlay = lazy(() => import("./pages/Overlay"));
 
 function NotFound() {
   return (
@@ -65,11 +66,18 @@ function App() {
   }, []);
   const page = route[0] ?? "";
   const fullBleed = page === "break";
-  const known = ["", "breaks", "break", "host", "vault", "verify", "how", "leaders"].includes(page);
+  const known = ["", "breaks", "break", "host", "vault", "verify", "how", "leaders", "overlay"].includes(page);
   useEffect(() => {
     const t: Record<string, string> = { "": "Card breaks you can verify", breaks: "Live breaks", break: "Break room", host: "Host a break", vault: "Your vault", verify: "Verify a break", how: "How it's fair", leaders: "Leaderboard" };
     document.title = `${known ? t[page] : "Not found"} · BREAKROOM`;
   }, [page]);
+  // stream overlay: nothing but the overlay (no nav, footer, music or modals)
+  if (page === "overlay" && route[1])
+    return (
+      <Suspense fallback={null}>
+        <Overlay id={BigInt(route[1])} />
+      </Suspense>
+    );
   return (
     <>
       <Nav route={route} />

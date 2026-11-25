@@ -4,7 +4,7 @@ import { settings } from "./settings";
 import { music } from "./music";
 
 function ac() {
-  if (!settings.get().sfx) return null;
+  if (!settings.get().sfx || location.hash.startsWith("#/overlay")) return null;
   try {
     ctx ??= new AudioContext();
     if (ctx.state === "suspended") ctx.resume();

@@ -9,6 +9,8 @@ let level = 1; // duck multiplier
 let fadeTimer = 0 as any;
 
 function target() {
+  // never play over a stream overlay (OBS captures page audio)
+  if (location.hash.startsWith("#/overlay")) return 0;
   const s = settings.get();
   return s.music && !document.hidden ? s.volume * 0.6 * level : 0;
 }

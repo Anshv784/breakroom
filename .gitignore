@@ -9,3 +9,4 @@ dist/
 .env.*
 scripts/.tmp/
 test-ledger/
+app/public/stream-demo.mp4

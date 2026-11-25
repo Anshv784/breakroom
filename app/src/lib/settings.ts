@@ -15,9 +15,10 @@ export interface Settings {
   sfx: boolean;
   alerts: boolean;
   reduceMotion: boolean;
+  clips: boolean;
 }
 const KEY = "br-settings-v1";
-const DEFAULTS: Settings = { music: true, track: TRACKS[0].id, volume: 0.35, sfx: true, alerts: true, reduceMotion: false };
+const DEFAULTS: Settings = { music: true, track: TRACKS[0].id, volume: 0.35, sfx: true, alerts: true, reduceMotion: false, clips: true };
 
 let state: Settings = (() => {
   try {

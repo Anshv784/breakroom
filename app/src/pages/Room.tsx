@@ -9,6 +9,8 @@ import { chaseIndex, spotOfPos, evHistory, oddsFor, snapshot, stepsDone, teamNam
 import { cardImage, faceOf, TIER_NAMES, TIER_COLORS } from "../lib/art";
 import { StatusChip } from "../ui/BreakCard";
 import { sfx } from "../lib/sfx";
+import { StreamButton } from "../ui/StreamPanel";
+import { clipsSupported, PullRecorder, type Clip } from "../lib/clip";
 import { settings, useSettings } from "../lib/settings";
 import { readerClient } from "../lib/useBreaks";
 import { shareCard } from "../lib/share";
@@ -65,6 +67,26 @@ function RipBanner({ mine, who, spot, deadline }: { mine: boolean; who: string; 
   );
 }
 
+/** Share the clip file where the device supports it (phones), otherwise download it. */
+async function shareClip(clip: Clip, b: { title: string; breakId: bigint }) {
+  const ext = clip.type.includes("mp4") ? "mp4" : "webm";
+  const file = new File([clip.blob], `breakroom-pull.${ext}`, { type: clip.type });
+  const text = `${clip.card ? `Just pulled ${clip.card.name}` : "Just ripped a pack"} in ${b.title} on BREAKROOM. Provably fair: ${location.origin}${location.pathname}#/verify/${b.breakId}`;
+  const nav = navigator as any;
+  if (nav.canShare?.({ files: [file] })) {
+    try {
+      await nav.share({ files: [file], text });
+      return;
+    } catch {
+      /* cancelled */
+    }
+  }
+  const a = document.createElement("a");
+  a.href = clip.url;
+  a.download = file.name;
+  a.click();
+}
+
 export const REACTIONS = ["🔥", "😱", "💎", "👏", "🙏", "😭"];
 
 export default function Room({ id }: { id: bigint }) {
@@ -80,6 +102,8 @@ export default function Room({ id }: { id: bigint }) {
   const [tab, setTab] = useState<"market" | "chat" | "box" | "tape">("market");
   const [pull, setPull] = useState<{ card: number; spot: number; at: number } | null>(null);
   const [shareFor, setShareFor] = useState<number | null>(null);
+  const clipRec = useRef<PullRecorder | null>(null);
+  const [clip, setClip] = useState<Clip | null>(null);
   const [teamBanner, setTeamBanner] = useState<{ spot: number; mask: number; at: number } | null>(null);
   const sound = useSettings();
   const muted = !sound.sfx && !sound.music;
@@ -91,6 +115,16 @@ export default function Room({ id }: { id: bigint }) {
   useEffect(() => {
     if (!pull || replay !== null) return;
     const info = cards[pull.card];
+    // you ripped it yourself and we're recording: the clip becomes the share
+    if (clipRec.current && live?.spotOwner[pull.spot]?.toBase58() === me) {
+      const rec = clipRec.current;
+      rec.pulled(info ?? null);
+      rec.result().then((c) => {
+        clipRec.current = null;
+        if (c) setClip(c);
+      });
+      return;
+    }
     if (!info || info.tier < 2 || live?.spotOwner[pull.spot]?.toBase58() !== me) return;
     const t = setTimeout(() => setShareFor(pull.card), 2800);
     return () => clearTimeout(t);
@@ -138,6 +172,14 @@ export default function Room({ id }: { id: bigint }) {
       document.title = base;
     };
   }, [ripMine, live?.cursor]);
+  // Pull Clips: start recording the room the moment your pack is up
+  useEffect(() => {
+    if (!ripMine || clipRec.current || !settings.get().clips || !clipsSupported()) return;
+    const canvas = document.querySelector(".room-stage canvas") as HTMLCanvasElement | null;
+    if (!canvas || !live) return;
+    const rec = new PullRecorder(canvas, { title: live.title || "Live break", who: useApp.getState().profile?.name || "I", link: `${location.host}/#/verify/${live.breakId}` });
+    if (rec.start()) clipRec.current = rec;
+  }, [ripMine]);
   if (error) return <div className="wrap" style={{ padding: 64 }}><div className="panel" style={{ padding: 32 }}>{error}. <a href="#/breaks" className="muted">Back to breaks</a></div></div>;
   if (!b || !live) return <div className="room"><div className="room-stage skeleton" style={{ borderRadius: 0 }} /><aside className="room-side" /></div>;
 
@@ -198,6 +240,25 @@ export default function Room({ id }: { id: bigint }) {
             )}
           </div>
         )}
+        {clip && (
+          <div className="scrim" onClick={() => setClip(null)}>
+            <div className="panel modal clip-pop" onClick={(e) => e.stopPropagation()}>
+              <video src={clip.url} autoPlay loop muted playsInline />
+              <div>
+                <div className="mono" style={{ color: "var(--foil-c)", fontSize: 12, letterSpacing: ".2em" }}>YOUR PULL CLIP</div>
+                <h2 className="display">{clip.card ? clip.card.name : "Your rip"}</h2>
+                {clip.card && <div className="mono" style={{ fontSize: 24, margin: "2px 0 12px" }}>{usd(clip.card.value, 0)}</div>}
+                <p className="muted">Made in your browser, nothing uploaded. Post it anywhere: it ends with the link that proves nobody picked this card.</p>
+                <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
+                  <button className="btn primary" onClick={() => shareClip(clip, live)}>Share video</button>
+                  <a className="btn" href={clip.url} download={`breakroom-pull-${live.breakId}.${clip.type.includes("mp4") ? "mp4" : "webm"}`}>Download</a>
+                  {clip.card && <button className="btn ghost" onClick={() => shareCard(clip.card!, live.title, live.breakId)}>Post on X with the proof link</button>}
+                  <button className="btn ghost" onClick={() => setClip(null)}>Later</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {shareCardInfo && (
           <div className="scrim" onClick={() => setShareFor(null)}>
             <div className="panel modal share-pop" onClick={(e) => e.stopPropagation()} style={{ ["--tc" as any]: TIER_COLORS[shareCardInfo.tier] }}>
@@ -217,6 +278,7 @@ export default function Room({ id }: { id: bigint }) {
           </div>
         )}
         <div className="stage-tools">
+          {me && live.host.toBase58() === me && <StreamButton id={live.breakId} />}
           <button className="btn sm ghost" onClick={() => sfx.setMuted(!muted)} title={muted ? "Sound off" : "Sound on"} aria-label={muted ? "Turn sound on" : "Turn sound off"}>
             {muted ? "Sound off" : "Sound on"}
           </button>

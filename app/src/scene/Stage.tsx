@@ -217,7 +217,7 @@ export default function Stage({ b, cards, names, selected, onSelect, me, onPull,
   const focus = b.status === ST.LIVE && latestAge < 2600;
 
   return (
-    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 4.6, 9.5], fov: 42 }} performance={{ min: 0.6 }} gl={{ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: CAPTURE }}>
+    <Canvas dpr={[1, 1.75]} camera={{ position: [0, 4.6, 9.5], fov: 42 }} performance={{ min: 0.6 }} gl={{ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true }}>
       <color attach="background" args={["#07060a"]} />
       <fog attach="fog" args={["#07060a", 8, 16]} />
       <ambientLight intensity={0.5} />
