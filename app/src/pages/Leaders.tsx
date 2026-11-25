@@ -1,7 +1,7 @@
 // Leaderboard: collectors by profit, biggest pulls, and host reputation — all computed from the
 // breaks on chain (no indexer).
 import "./leaders.css";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useBreakList, useCards, useNames } from "../lib/useBreaks";
 import { hostRep, leaderboard } from "../lib/rep";
@@ -9,100 +9,189 @@ import { cardImage, faceOf, TIER_COLORS, TIER_NAMES } from "../lib/art";
 import { usd } from "../state/store";
 import { useApp } from "../state/store";
 
+const COLORS = ["#7cf7e4", "#b58cff", "#ffd27a", "#ff8fb8", "#8fd3ff", "#9ff5c8", "#ffb38a", "#c9b8ff"];
+const colorOf = (k: string) => COLORS[[...k].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % COLORS.length];
+
 export default function Leaders() {
   const { list, loading } = useBreakList(15_000);
   const { collectors, pulls } = useMemo(() => leaderboard(list), [list]);
-  const top = pulls.slice(0, 8);
+  const [sort, setSort] = useState<"profit" | "pulled" | "spots">("profit");
+  const top = pulls.slice(0, 9);
   const topCards = useCards(top.map((p) => p.mint));
   const hosts = useMemo(() => {
     const keys = [...new Set(list.map((b) => b.host.toBase58()))];
-    return keys
-      .map((k) => ({ k, ...hostRep(list, new PublicKey(k)) }))
-      .sort((a, b) => b.verified - a.verified || b.hosted - a.hosted);
+    return keys.map((k) => ({ k, ...hostRep(list, new PublicKey(k)) })).sort((a, b) => b.verified - a.verified || b.hosted - a.hosted);
   }, [list]);
-  const names = useNames([...collectors.slice(0, 25).map((c) => new PublicKey(c.key)), ...hosts.map((h) => new PublicKey(h.k)), ...top.map((p) => new PublicKey(p.owner))]);
+  const ranked = useMemo(() => [...collectors].sort((a, b) => (sort === "profit" ? b.profit - a.profit : sort === "pulled" ? b.pulled - a.pulled : b.spots - a.spots)), [collectors, sort]);
+  const names = useNames([...collectors.slice(0, 30).map((c) => new PublicKey(c.key)), ...hosts.map((h) => new PublicKey(h.k)), ...top.map((p) => new PublicKey(p.owner))]);
   const me = useApp((s) => s.client?.me.toBase58());
   const n = (k: string) => names(new PublicKey(k));
-  return (
-    <div className="wrap" style={{ padding: "40px 24px 80px" }}>
-      <div className="eyebrow">Leaderboard</div>
-      <h1 className="display" style={{ fontSize: 36, margin: "8px 0 6px" }}>Who's ripping.</h1>
-      <p className="muted" style={{ marginTop: 0 }}>Computed live from every break on chain: spots bought, spots sold, cards pulled.</p>
+  const podium = ranked.slice(0, 3);
+  const best = top[0];
+  const bestCard = topCards[0];
+  const totals = useMemo(() => ({ pulled: collectors.reduce((a, c) => a + c.pulled, 0), cards: pulls.length, collectors: collectors.length }), [collectors, pulls]);
 
-      <h2 className="display" style={{ fontSize: 22, margin: "32px 0 14px" }}>Biggest pulls</h2>
-      {loading ? (
-        <div className="skeleton" style={{ height: 220 }} />
-      ) : top.length === 0 ? (
-        <p className="faint">No finished breaks yet — the first big pull lands here.</p>
+  return (
+    <div className="wrap lb">
+      <div className="lb-head">
+        <div>
+          <h1 className="display">Leaderboard</h1>
+          <p className="muted">Live from every break on chain: spots bought, spots sold, cards pulled.</p>
+        </div>
+        <div className="lb-totals">
+          <div>
+            <b className="mono">{totals.collectors}</b>
+            <span>collectors</span>
+          </div>
+          <div>
+            <b className="mono">{totals.cards}</b>
+            <span>cards pulled</span>
+          </div>
+          <div>
+            <b className="mono">{usd(totals.pulled, 0)}</b>
+            <span>value pulled</span>
+          </div>
+        </div>
+      </div>
+
+      {loading && collectors.length === 0 ? (
+        <div className="skeleton" style={{ height: 420, borderRadius: 22 }} />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(128px,1fr))", gap: 14 }}>
-          {top.map((p, i) => {
-            const c = topCards[i];
-            return (
-              <a key={`${p.breakId}-${p.card}`} href={`#/break/${p.breakId}`} className={`bp ${i === 0 ? "first" : ""}`} style={{ display: "grid", gap: 6, ["--tint" as any]: TIER_COLORS[p.tier], ["--d" as any]: `${i * 0.7}s` }}>
-                <span className="bp-frame">
-                  {c ? <img src={cardImage(faceOf(c))} alt={c.name} style={{ width: "100%", display: "block", borderRadius: 8, boxShadow: `0 16px 40px -18px ${TIER_COLORS[p.tier]}` }} /> : <div className="skeleton" style={{ aspectRatio: "512/716" }} />}
-                  <i className="bp-sheen" />
-                </span>
-                <div style={{ fontSize: 12, display: "flex", justifyContent: "space-between" }}>
-                  <span className={`mono tier-${p.tier}`}>{TIER_NAMES[p.tier]}</span>
-                  <span className="mono">{usd(p.value, 0)}</span>
-                </div>
-                <div className="faint" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {n(p.owner)} · {p.title}
+        <>
+          {/* the biggest pull, and the top three */}
+          <section className="lb-hero">
+            {best && (
+              <a href={`#/break/${best.breakId}`} className="lb-best" style={{ ["--tc" as any]: TIER_COLORS[best.tier] }}>
+                <div className="lb-best-art">{bestCard ? <img src={cardImage(faceOf(bestCard))} alt={bestCard.name} /> : <div className="skeleton" />}</div>
+                <div className="lb-best-info">
+                  <span className="eyebrow">Biggest pull</span>
+                  <b className="display">{bestCard?.name ?? "…"}</b>
+                  <span className="lb-best-val mono">{usd(best.value, 0)}</span>
+                  <span className="muted">
+                    <span style={{ color: TIER_COLORS[best.tier] }}>{TIER_NAMES[best.tier].toLowerCase()}</span> · pulled by <b style={{ color: colorOf(best.owner) }}>{n(best.owner)}</b>
+                  </span>
+                  <span className="faint">{best.title}</span>
                 </div>
               </a>
-            );
-          })}
-        </div>
-      )}
+            )}
+            <div className="lb-podium">
+              {[1, 0, 2].map((i) => {
+                const c = podium[i];
+                if (!c) return <div key={i} />;
+                return (
+                  <div key={c.key} className={`pod pod${i + 1}`}>
+                    <span className="pod-av" style={{ background: colorOf(c.key) }}>
+                      {n(c.key).slice(0, 1).toUpperCase()}
+                    </span>
+                    <b className="pod-name">{n(c.key)}</b>
+                    <span className={`pod-val mono ${c.profit >= 0 ? "up" : "down"}`}>
+                      {c.profit >= 0 ? "+" : "−"}
+                      {usd(Math.abs(c.profit), 0)}
+                    </span>
+                    <div className="pod-step">
+                      <span className="pod-rank">{i + 1}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)", gap: 20, marginTop: 36 }} className="leaders-grid">
-        <section>
-          <h2 className="display" style={{ fontSize: 22, margin: "0 0 14px" }}>Collectors</h2>
-          <div className="panel" style={{ padding: 8 }}>
-            <table className="mono" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr className="faint" style={{ textAlign: "right", fontSize: 11 }}>
-                  <th style={{ textAlign: "left", padding: 8 }}>#</th>
-                  <th style={{ textAlign: "left" }}>Collector</th>
-                  <th>Spent</th>
-                  <th>Pulled</th>
-                  <th>Sold</th>
-                  <th style={{ paddingRight: 8 }}>Profit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {collectors.slice(0, 25).map((c, i) => (
-                  <tr key={c.key} className={i < 3 ? `podium p${i + 1}` : undefined} style={{ borderTop: "1px solid var(--line)", textAlign: "right", background: c.key === me ? "rgba(79,227,161,.06)" : undefined }}>
-                    <td style={{ textAlign: "left", padding: 8 }} className="faint">{i < 3 ? <span className="medal">{i + 1}</span> : i + 1}</td>
-                    <td style={{ textAlign: "left", fontFamily: "var(--sans)", fontWeight: 600 }}>{n(c.key)}{c.key === me ? <span className="up"> · you</span> : null}</td>
-                    <td>{usd(c.spent, 0)}</td>
-                    <td>{usd(c.pulled, 0)}</td>
-                    <td>{usd(c.earned, 0)}</td>
-                    <td style={{ paddingRight: 8 }} className={c.profit >= 0 ? "up" : "down"}>{c.profit >= 0 ? "+" : "−"}{usd(Math.abs(c.profit), 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section>
-          <h2 className="display" style={{ fontSize: 22, margin: "0 0 14px" }}>Hosts</h2>
-          <div style={{ display: "grid", gap: 8 }}>
-            {hosts.map((h) => (
-              <div key={h.k} className="panel" style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}>
-                <b>{n(h.k)}</b>
-                <span className="chip" style={{ color: h.verified ? "var(--up)" : undefined }}>✓ {h.verified} verified</span>
-                <span className="faint" style={{ fontSize: 12 }}>
-                  {h.hosted} hosted · {h.completed} completed · priced at {(h.priceToValue * 100).toFixed(0)}% of fair value
-                </span>
+          {/* biggest pulls strip */}
+          <section className="lb-sec">
+            <h2 className="display">Biggest pulls</h2>
+            <div className="lb-pulls">
+              {top.slice(1).map((p, i) => {
+                const c = topCards[i + 1];
+                return (
+                  <a key={`${p.breakId}-${p.card}`} href={`#/break/${p.breakId}`} className="lb-pull">
+                    {c ? <img src={cardImage(faceOf(c))} alt={c.name} /> : <div className="skeleton" style={{ aspectRatio: "512/716" }} />}
+                    <div className="lb-pull-meta">
+                      <b className="mono">{usd(p.value, 0)}</b>
+                      <span style={{ color: colorOf(p.owner) }}>{n(p.owner)}</span>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="lb-grid">
+            <section>
+              <div className="lb-sec-head">
+                <h2 className="display">Collectors</h2>
+                <div className="lb-sort">
+                  {(["profit", "pulled", "spots"] as const).map((k) => (
+                    <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>
+                      {k === "profit" ? "Profit" : k === "pulled" ? "Pulled" : "Spots"}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+              <div className="panel lb-table">
+                <div className="lb-row lb-th">
+                  <span>#</span>
+                  <span>Collector</span>
+                  <span>Spots</span>
+                  <span>Spent</span>
+                  <span>Pulled</span>
+                  <span>Profit</span>
+                </div>
+                {ranked.slice(0, 25).map((c, i) => (
+                  <div key={c.key} className={`lb-row ${c.key === me ? "me" : ""}`}>
+                    <span className="lb-rank mono">{i + 1}</span>
+                    <span className="lb-who">
+                      <i style={{ background: colorOf(c.key) }}>{n(c.key).slice(0, 1).toUpperCase()}</i>
+                      <b>{n(c.key)}</b>
+                      {c.key === me && <em>you</em>}
+                    </span>
+                    <span className="mono">{c.spots}</span>
+                    <span className="mono">{usd(c.spent, 0)}</span>
+                    <span className="mono">{usd(c.pulled, 0)}</span>
+                    <span className={`mono ${c.profit >= 0 ? "up" : "down"}`}>
+                      {c.profit >= 0 ? "+" : "−"}
+                      {usd(Math.abs(c.profit), 0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <div className="lb-sec-head">
+                <h2 className="display">Hosts</h2>
+              </div>
+              <div className="lb-hosts">
+                {hosts.map((h) => {
+                  const fair = h.priceToValue;
+                  return (
+                    <div key={h.k} className="panel lb-host">
+                      <div className="lb-host-top">
+                        <i style={{ background: colorOf(h.k) }}>{n(h.k).slice(0, 1).toUpperCase()}</i>
+                        <b>{n(h.k)}</b>
+                        {h.verified > 0 && <span className="lb-ver">✓ {h.verified} verified</span>}
+                      </div>
+                      <div className="lb-host-stats">
+                        <div>
+                          <b className="mono">{h.hosted}</b>
+                          <span>hosted</span>
+                        </div>
+                        <div>
+                          <b className="mono">{h.completed}</b>
+                          <span>completed</span>
+                        </div>
+                        <div>
+                          <b className={`mono ${fair <= 1.05 ? "up" : ""}`}>{(fair * 100).toFixed(0)}%</b>
+                          <span>of fair value</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </div>
-        </section>
-      </div>
-      <style>{`@media (max-width: 900px){ .leaders-grid{ grid-template-columns: 1fr !important; } }`}</style>
+        </>
+      )}
     </div>
   );
 }

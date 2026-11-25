@@ -3,7 +3,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useBreak, useBreakList, useCards, useNames } from "../lib/useBreaks";
 import { readiness, usd, useApp } from "../state/store";
-import { ST, TRADE_KIND, type BreakState, type ChatMsg, type ReceiptState } from "../chain/layout";
+import { ST, TRADE_KIND, type BreakState, type CardInfo, type ChatMsg, type ReceiptState } from "../chain/layout";
 import { pct } from "../lib/odds";
 import { chaseIndex, spotOfPos, evHistory, oddsFor, snapshot, stepsDone, teamNames, totalSteps, ELEMENT_COLORS } from "../lib/breakmath";
 import { cardImage, faceOf, TIER_NAMES, TIER_COLORS } from "../lib/art";
@@ -308,7 +308,7 @@ export default function Room({ id }: { id: bigint }) {
         </div>
         <div className="side-body">
           {tab === "market" && <Market b={b} names={names} selected={selected} setSelected={setSelected} cards={cards} />}
-          {tab === "chat" && <ChatPanel b={live} msgs={chat} names={names} />}
+          {tab === "chat" && <ChatPanel b={live} msgs={chat} names={names} cards={cards} />}
           {tab === "box" && <BoxView b={b} cards={cards} names={names} />}
           {tab === "tape" && <Tape b={live} names={names} />}
         </div>
@@ -387,16 +387,54 @@ function Reactions({ msgs }: { msgs: ChatMsg[] }) {
   );
 }
 
-function ChatPanel({ b, msgs, names }: { b: BreakState; msgs: ChatMsg[]; names: (k: any) => string }) {
+const NAME_COLORS = ["#7cf7e4", "#b58cff", "#ffd27a", "#ff8fb8", "#8fd3ff", "#9ff5c8", "#ffb38a", "#c9b8ff"];
+const colorOf = (k: string) => NAME_COLORS[[...k].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % NAME_COLORS.length];
+const clock = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+type Line = { key: string; ts: number; kind: "msg" | "trade" | "pull"; who?: PublicKey; text: string; extra?: string; color?: string };
+
+function ChatPanel({ b, msgs, names, cards }: { b: BreakState; msgs: ChatMsg[]; names: (k: any) => string; cards: (CardInfo | null)[] }) {
   const st = useApp();
   const r = readiness(st);
   const c = st.client;
+  const me = c?.me.toBase58();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  // pulls seen while you're watching, stamped with the time they landed
+  const [pulls, setPulls] = useState<Line[]>([]);
+  const seenPos = useRef<Set<number> | null>(null);
+  useEffect(() => {
+    const out = b.revealed.map((x, pos) => (x >= 0 ? pos : -1)).filter((p) => p >= 0);
+    if (!seenPos.current) {
+      seenPos.current = new Set(out);
+      return;
+    }
+    const fresh: Line[] = [];
+    for (const pos of out) if (!seenPos.current.has(pos)) {
+      seenPos.current.add(pos);
+      const info = cards[b.revealed[pos]];
+      const spot = spotOfPos(b, pos);
+      const owner = spot >= 0 ? b.spotOwner[spot] : null;
+      if (info) fresh.push({ key: `p${pos}`, ts: Date.now() / 1000, kind: "pull", who: owner ?? undefined, text: info.name, extra: usd(info.value, 0), color: TIER_COLORS[info.tier] });
+    }
+    if (fresh.length) setPulls((p) => [...p, ...fresh].slice(-30));
+  }, [b.cursor]);
+  const lines = useMemo(() => {
+    const out: Line[] = [];
+    for (const m of msgs) if (m.kind === 0) out.push({ key: `m${m.seq}`, ts: m.ts, kind: "msg", who: m.author, text: m.text });
+    for (const [i, t] of b.trades.entries()) if (t.kind !== 3) out.push({ key: `t${i}-${t.ts}`, ts: t.ts, kind: "trade", who: t.buyer, text: `${t.kind === 0 ? "took" : "bought"} spot #${t.spot + 1}`, extra: usd(t.price, 0) });
+    out.push(...pulls);
+    return out.sort((x, y) => x.ts - y.ts).slice(-80);
+  }, [msgs.length, b.nTrades, pulls.length]);
+  const reacts = useMemo(() => {
+    const m = new Map<string, number>();
+    msgs.filter((x) => x.kind === 1).forEach((x) => m.set(x.text, (m.get(x.text) ?? 0) + 1));
+    return REACTIONS.map((e) => [e, m.get(e) ?? 0] as const);
+  }, [msgs.length]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [msgs.length]);
+  }, [lines.length]);
   const send = async (t: string, kind = 0) => {
     if (!c) return st.setConnect(true);
     if (!r.ready) return st.setOnboard(true);
@@ -407,17 +445,59 @@ function ChatPanel({ b, msgs, names }: { b: BreakState; msgs: ChatMsg[]; names: 
   return (
     <div className="chat">
       <div className="chat-log">
-        {msgs.filter((m) => m.kind === 0).length === 0 && <p className="faint" style={{ fontSize: 13 }}>No messages yet. Chat lives in the rollup: free and instant.</p>}
-        {msgs.filter((m) => m.kind === 0).map((m) => (
-          <div key={m.seq} className="chat-msg">
-            <b style={{ color: m.author.equals(b.host) ? "var(--warn)" : undefined }}>{names(m.author)}</b> <span>{m.text}</span>
+        {lines.length === 0 && (
+          <div className="chat-empty">
+            <b>The room is quiet</b>
+            <span>Say hi, or drop a reaction when a pack opens. Chat runs in the rollup: free and instant.</span>
           </div>
-        ))}
+        )}
+        {lines.map((l) => {
+          const k = l.who?.toBase58() ?? "";
+          const nm = l.who ? names(l.who) : "";
+          if (l.kind === "pull")
+            return (
+              <div key={l.key} className="cl-event pull" style={{ ["--tc" as any]: l.color }}>
+                <span className="cl-dot" />
+                <span>
+                  <b style={{ color: colorOf(k) }}>{nm || "Someone"}</b> pulled <b style={{ color: l.color }}>{l.text}</b>
+                </span>
+                <em>{l.extra}</em>
+              </div>
+            );
+          if (l.kind === "trade")
+            return (
+              <div key={l.key} className="cl-event">
+                <span className="cl-dot trade" />
+                <span>
+                  <b style={{ color: colorOf(k) }}>{nm}</b> {l.text}
+                </span>
+                <em>{l.extra}</em>
+              </div>
+            );
+          const mine = k === me;
+          const host = l.who?.equals(b.host);
+          return (
+            <div key={l.key} className={`cl-msg ${mine ? "mine" : ""}`}>
+              <span className="cl-av" style={{ background: colorOf(k) }}>{nm.slice(0, 1).toUpperCase()}</span>
+              <div className="cl-body">
+                <div className="cl-head">
+                  <b style={{ color: colorOf(k) }}>{mine ? "You" : nm}</b>
+                  {host && <span className="cl-tag">HOST</span>}
+                  <time>{clock(l.ts)}</time>
+                </div>
+                <div className="cl-text">{l.text}</div>
+              </div>
+            </div>
+          );
+        })}
         <div ref={end} />
       </div>
       <div className="react-bar">
-        {REACTIONS.map((e) => (
-          <button key={e} onClick={() => send(e, 1)} disabled={busy} aria-label={`react ${e}`}>{e}</button>
+        {reacts.map(([e, n]) => (
+          <button key={e} onClick={() => send(e, 1)} disabled={busy} aria-label={`react ${e}`}>
+            {e}
+            {n > 0 && <span>{n}</span>}
+          </button>
         ))}
       </div>
       <form
@@ -430,8 +510,10 @@ function ChatPanel({ b, msgs, names }: { b: BreakState; msgs: ChatMsg[]; names: 
           await send(t);
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value.slice(0, 80))} placeholder={c ? "Say something" : "Connect to chat"} />
-        <button className="btn sm" disabled={busy || !text.trim()}>Send</button>
+        <input value={text} onChange={(e) => setText(e.target.value.slice(0, 80))} placeholder={c ? "Say something to the room" : "Connect to chat"} />
+        <button className="btn sm primary" disabled={busy || !text.trim()} aria-label="Send">
+          Send
+        </button>
       </form>
     </div>
   );

@@ -39,8 +39,8 @@ const frag = /* glsl */ `
     float strength = tier < 0.5 ? 0.05 : tier < 1.5 ? 0.13 : tier < 2.5 ? 0.22 : tier < 3.5 ? 0.32 : 0.42;
     // where the foil sits: frame + art window, less on the text band
     vec2 c = vUv - 0.5;
-    float frame = smoothstep(0.40, 0.47, max(abs(c.x) * 1.05, abs(c.y) * 0.98));
-    float art = step(0.30, vUv.y) * step(vUv.y, 0.85) * step(0.09, vUv.x) * step(vUv.x, 0.91);
+    float frame = smoothstep(0.455, 0.47, max(abs(c.x), abs(c.y)));
+    float art = step(0.41, vUv.y) * step(vUv.y, 0.87) * step(0.066, vUv.x) * step(vUv.x, 0.934);
     float mask = max(frame, art * 0.85);
     float t = facing * 1.7 + vUv.x * 0.9 + vUv.y * 0.55;
     vec3 foil = palette(t);
