@@ -595,3 +595,29 @@ export function cardImage(c: CardFace): string {
   }
   return u;
 }
+
+const avatarCache = new Map<string, string>();
+/** A per-wallet avatar in the cards' art style: a painted element scene with its emblem. */
+export function avatarImage(key: string): string {
+  let u = avatarCache.get(key);
+  if (u) return u;
+  let h = 2166136261;
+  for (const ch of key) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0;
+  const el = ELEMENTS[(h >>> 3) % ELEMENTS.length];
+  const c = document.createElement("canvas");
+  c.width = c.height = 160;
+  const x = c.getContext("2d")!;
+  const R = rng(h);
+  // each wallet gets its own shade and framing, so two wallets of the same element still differ
+  x.filter = `hue-rotate(${((h >>> 9) % 70) - 35}deg) saturate(${1 + ((h >>> 16) % 5) / 10})`;
+  const ox = ((h >>> 12) % 50) - 25;
+  scene(x, el.key, -40 + ox, -30, 240, 220, el.a, el.b, R);
+  x.filter = "none";
+  const gx = 80 + (((h >>> 20) % 16) - 8), gy = 72;
+  glyph(x, el.glyph, gx, gy, 46, el.a, rng(h + 1));
+  glyph(x, el.glyph, gx, gy, 46, "rgba(255,255,255,0.45)", rng(h + 1));
+  u = c.toDataURL("image/webp", 0.9);
+  avatarCache.set(key, u);
+  return u;
+}

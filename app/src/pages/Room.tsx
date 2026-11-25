@@ -1,4 +1,5 @@
 // The break room: the live table plus the spot market, chat, replay and sharing.
+import { Avatar } from "../ui/Avatar";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useBreak, useBreakList, useCards, useNames } from "../lib/useBreaks";
@@ -478,7 +479,7 @@ function ChatPanel({ b, msgs, names, cards }: { b: BreakState; msgs: ChatMsg[]; 
           const host = l.who?.equals(b.host);
           return (
             <div key={l.key} className={`cl-msg ${mine ? "mine" : ""}`}>
-              <span className="cl-av" style={{ background: colorOf(k) }}>{nm.slice(0, 1).toUpperCase()}</span>
+              <span className="cl-av">{l.who ? <Avatar k={l.who} size={26} /> : null}</span>
               <div className="cl-body">
                 <div className="cl-head">
                   <b style={{ color: colorOf(k) }}>{mine ? "You" : nm}</b>

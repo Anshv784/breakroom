@@ -1,5 +1,6 @@
 // Leaderboard: collectors by profit, biggest pulls, and host reputation — all computed from the
 // breaks on chain (no indexer).
+import { Avatar } from "../ui/Avatar";
 import "./leaders.css";
 import { useMemo, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
@@ -80,9 +81,7 @@ export default function Leaders() {
                 if (!c) return <div key={i} />;
                 return (
                   <div key={c.key} className={`pod pod${i + 1}`}>
-                    <span className="pod-av" style={{ background: colorOf(c.key) }}>
-                      {n(c.key).slice(0, 1).toUpperCase()}
-                    </span>
+                    <span className="pod-av"><Avatar k={c.key} size={i === 0 ? 60 : 48} ring={i === 0 ? "#f1cf7a" : i === 1 ? "#c9ccd4" : "#d79a6a"} /></span>
                     <b className="pod-name">{n(c.key)}</b>
                     <span className={`pod-val mono ${c.profit >= 0 ? "up" : "down"}`}>
                       {c.profit >= 0 ? "+" : "−"}
@@ -141,7 +140,7 @@ export default function Leaders() {
                   <div key={c.key} className={`lb-row ${c.key === me ? "me" : ""}`}>
                     <span className="lb-rank mono">{i + 1}</span>
                     <span className="lb-who">
-                      <i style={{ background: colorOf(c.key) }}>{n(c.key).slice(0, 1).toUpperCase()}</i>
+                      <Avatar k={c.key} size={24} />
                       <b>{n(c.key)}</b>
                       {c.key === me && <em>you</em>}
                     </span>
@@ -166,7 +165,7 @@ export default function Leaders() {
                   return (
                     <div key={h.k} className="panel lb-host">
                       <div className="lb-host-top">
-                        <i style={{ background: colorOf(h.k) }}>{n(h.k).slice(0, 1).toUpperCase()}</i>
+                        <Avatar k={h.k} size={26} />
                         <b>{n(h.k)}</b>
                         {h.verified > 0 && <span className="lb-ver">✓ {h.verified} verified</span>}
                       </div>

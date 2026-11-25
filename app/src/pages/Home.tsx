@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Avatar } from "../ui/Avatar";
 import { useApp, usd } from "../state/store";
 import { BreakroomClient, keypairWallet, statsPda } from "../chain/client";
 import { Keypair, PublicKey } from "@solana/web3.js";
@@ -209,7 +210,7 @@ function Boards({ list }: { list: ReturnType<typeof useBreakList>["list"] }) {
           {top.map((c, i) => (
             <div key={c.key} className="board-row">
               <span className="board-n mono">{i + 1}</span>
-              <span className="avatar">{names(new PublicKey(c.key)).slice(0, 1)}</span>
+              <Avatar k={c.key} size={26} />
               <b>{names(new PublicKey(c.key))}</b>
               <span className={`mono ${c.profit >= 0 ? "up" : "down"}`}>
                 {c.profit >= 0 ? "+" : "−"}
@@ -228,7 +229,7 @@ function Boards({ list }: { list: ReturnType<typeof useBreakList>["list"] }) {
           {hosts.map(([k, n], i) => (
             <div key={k} className="board-row">
               <span className="board-n mono">{i + 1}</span>
-              <span className="avatar">{names(new PublicKey(k)).slice(0, 1)}</span>
+              <Avatar k={k} size={26} />
               <b>{names(new PublicKey(k))}</b>
               <span className="up">✓ {n} verified</span>
             </div>

@@ -1,5 +1,7 @@
 // Your money and your cards: private balance, spots you hold, cards waiting for delivery, and the
 // collection itself (click a card to inspect the graded slab in 3D).
+import { Avatar } from "../ui/Avatar";
+import { PfpModal } from "../ui/PfpModal";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { readiness, shortKey, usd, useApp } from "../state/store";
 import { readerClient, useBreakList } from "../lib/useBreaks";
@@ -54,6 +56,7 @@ export default function Vault() {
   const data = useVaultData(list, c?.me);
   const [tab, setTab] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pfp, setPfp] = useState(false);
 
   if (!c)
     return (
@@ -90,7 +93,11 @@ export default function Vault() {
   return (
     <div className="wrap vault">
       <header className="v-head-block">
-        <div className="v-avatar">{name.slice(0, 1).toUpperCase()}</div>
+        <button className="v-avatar" onClick={() => setPfp(true)} title="Change profile picture">
+          <Avatar k={c.me} size={76} />
+          <span className="v-avatar-edit">Edit</span>
+        </button>
+        {pfp && <PfpModal onClose={() => setPfp(false)} />}
         <div style={{ minWidth: 0 }}>
           <div className="eyebrow">Your vault</div>
           <h1 className="display">{name}</h1>

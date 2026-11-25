@@ -1,5 +1,7 @@
 // Nav, wallet connect, toasts and the "get ready" onboarding that takes a wallet from nothing to
 // a live session: test USDC -> private balance (Private Payments API) -> profile -> session key.
+import { Avatar } from "./Avatar";
+import { PfpModal } from "./PfpModal";
 import { useEffect, useState } from "react";
 import { readiness, shortKey, usd, useApp } from "../state/store";
 import { detectWallets, onWalletsChanged, type Detected } from "../state/wallet";
@@ -72,6 +74,7 @@ export function Nav({ route }: { route: string[] }) {
 function AccountMenu() {
   const s = useApp();
   const [open, setOpen] = useState(false);
+  const [pfp, setPfp] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -87,8 +90,9 @@ function AccountMenu() {
   const label = s.profile?.name || shortKey(s.client.me);
   return (
     <div className="acct">
+      {pfp && <PfpModal onClose={() => setPfp(false)} />}
       <button className="btn sm" onClick={(e) => (e.stopPropagation(), setOpen(!open))} aria-haspopup="menu" aria-expanded={open}>
-        <span className="avatar">{label.slice(0, 1).toUpperCase()}</span>
+        <Avatar k={s.client.me} size={22} />
         {label}
         <span className="faint" style={{ fontSize: 10 }}>▾</span>
       </button>
@@ -99,6 +103,7 @@ function AccountMenu() {
             <div className="faint mono" style={{ fontSize: 12, marginTop: 2 }}>{shortKey(s.client.me)} · {s.walletName}</div>
           </div>
           <a href="#/vault" onClick={() => setOpen(false)}>Your vault <span className="faint">→</span></a>
+          <button onClick={() => (setPfp(true), setOpen(false))}>Profile picture</button>
           <button onClick={() => (s.setOnboard(true), setOpen(false))}>Balance & setup</button>
           <button onClick={() => (settings.setOpen(true), setOpen(false))}>Settings</button>
           <button

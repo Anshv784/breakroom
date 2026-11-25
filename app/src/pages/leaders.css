@@ -103,15 +103,10 @@
 .pod1 .pod-av {
   width: 60px;
   height: 60px;
-  font-size: 22px;
-  box-shadow: 0 0 0 3px #f1cf7a, 0 0 24px -4px rgba(241, 207, 122, 0.7);
+  filter: drop-shadow(0 0 14px rgba(241, 207, 122, 0.55));
 }
-.pod2 .pod-av {
-  box-shadow: 0 0 0 3px #c9ccd4;
-}
-.pod3 .pod-av {
-  box-shadow: 0 0 0 3px #d79a6a;
-}
+
+
 .pod-name {
   font-size: 14px;
   max-width: 100%;

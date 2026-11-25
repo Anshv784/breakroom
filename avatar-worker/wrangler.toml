@@ -1,0 +1,7 @@
+name = "breakroom-avatars"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[[kv_namespaces]]
+binding = "AVATARS"
+id = "438d1c1fad414708ac096357e88e761a"
