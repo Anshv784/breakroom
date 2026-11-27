@@ -7,7 +7,7 @@ import qrcode from "qrcode-generator";
 import { useBreak, useCards, useNames } from "../lib/useBreaks";
 import { ST } from "../chain/layout";
 import { chaseIndex, oddsFor, revealSequence, spotOfPos } from "../lib/breakmath";
-import { cardImage, faceOf, TIER_COLORS, TIER_NAMES } from "../lib/art";
+import { TIER_COLORS, TIER_NAMES } from "../lib/art";
 import { usd } from "../state/store";
 import { Logo } from "../ui/Logo";
 import "./overlay.css";
@@ -106,13 +106,12 @@ export default function Overlay({ id }: { id: bigint }) {
         )}
       </div>
 
-      {/* centre: the card that just came out */}
+      {/* lower-third: the card that just came out */}
       {pop && popCard && (
         <div className={`ov-pop ${popCard.tier >= 3 ? "big" : ""}`} key={pop.at} style={{ ["--tc" as any]: TIER_COLORS[popCard.tier] }}>
-          <img src={cardImage(faceOf(popCard))} alt={popCard.name} />
-          <div className="ov-pop-info">
-            <span className="ov-tier">{TIER_NAMES[popCard.tier]}</span>
-            <b>{popCard.name}</b>
+          <span className="ov-tier">{TIER_NAMES[popCard.tier]} PULL</span>
+          <b>{popCard.name}</b>
+          <div className="ov-pop-line">
             <span className="ov-val">{usd(popCard.value, 0)}</span>
             <span className="ov-owner">to {popSpot >= 0 && b.spotOwner[popSpot] ? names(b.spotOwner[popSpot]) : "spot #" + (popSpot + 1)}</span>
           </div>

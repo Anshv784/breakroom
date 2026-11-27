@@ -97,68 +97,66 @@ html.ov-mode body::after {
   margin-top: 4px;
 }
 /* the card that just came out */
+/* the card that just came out: a lower-third, text only (the card itself is on camera / on the table) */
 .ov-pop {
   position: absolute;
-  left: 50%;
-  top: 46%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  padding: 20px 30px 20px 20px;
-  border-radius: 24px;
-  background: rgba(9, 8, 11, 0.88);
-  border: 2px solid var(--tc);
-  box-shadow: 0 0 80px -16px var(--tc);
-  animation: ovIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), ovOut 0.4s 3.4s ease-in forwards;
-}
-.ov-pop img {
-  width: 190px;
-  border-radius: 12px;
-  transform: rotate(-3deg);
-}
-.ov-pop.big img {
-  width: 240px;
-}
-.ov-pop-info {
+  left: 36px;
+  bottom: 150px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 360px;
+  padding: 16px 26px 18px 24px;
+  border-radius: 18px;
+  background: rgba(9, 8, 11, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 6px solid var(--tc);
+  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.9), -10px 0 50px -24px var(--tc);
+  animation: ovIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), ovOut 0.4s 3.4s ease-in forwards;
+}
+.ov-pop.big {
+  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.9), 0 0 70px -18px var(--tc);
 }
 .ov-tier {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.24em;
   color: var(--tc);
   font-weight: 700;
 }
-.ov-pop-info b {
+.ov-pop b {
   font-family: var(--display);
-  font-size: 40px;
+  font-size: 38px;
   line-height: 1.05;
 }
-.ov-pop.big .ov-pop-info b {
-  font-size: 52px;
+.ov-pop.big b {
+  font-size: 46px;
+}
+.ov-pop-line {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 2px;
 }
 .ov-val {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 26px;
   color: var(--up);
 }
 .ov-owner {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.72);
 }
 @keyframes ovIn {
   from {
     opacity: 0;
-    transform: translate(-50%, -40%) scale(0.92);
+    transform: translateX(-40px);
   }
 }
 @keyframes ovOut {
   to {
     opacity: 0;
-    transform: translate(-50%, -54%) scale(0.98);
+    transform: translateX(-24px);
   }
 }
 .ov-ripping {
