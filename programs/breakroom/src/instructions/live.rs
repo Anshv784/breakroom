@@ -47,7 +47,9 @@ pub fn handle_start_break<'info>(ctx: Context<'info, StartBreak<'info>>, client_
         let is_host = p.owner == b.host;
         let host_start = is_host && b.sold > 0;
         let auto_start = b.sold == b.n_spots && now >= b.sold_out_at + AUTO_START_SECS;
-        require!(host_start || auto_start, BreakError::TooEarly);
+        // the host's own deadline passed with spots sold: anyone may start (unsold spots stay the host's)
+        let overdue = b.start_by > MAX_START_MINS && b.sold > 0 && now >= b.start_by as i64;
+        require!(host_start || auto_start || overdue, BreakError::TooEarly);
         let host = b.host;
         for s in 0..b.n_spots as usize {
             if b.spot_owner[s] == Pubkey::default() {

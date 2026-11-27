@@ -96,6 +96,8 @@ export interface BreakState {
   /** packs: 1 while the next pack is up for its owner to rip (until nextRevealMs) */
   ripArmed: number;
   auctionSecs: number;
+  /** Unix seconds after which anyone may start the break (0 = none). Minutes until the sale opens. */
+  startBy: number;
   auctionEnd: number;
   /** team mode: element bitmask per spot (0 = not revealed) */
   spotTeam: number[];
@@ -169,6 +171,7 @@ export function decodeBreak(data: Uint8Array): BreakState {
     sale: r.u8(o.sale),
     ripArmed: r.u8(o.rip_armed),
     auctionSecs: r.u32(o.auction_secs),
+    startBy: r.u32(o.start_by),
     auctionEnd: r.i64(o.auction_end),
     spotTeam: Array.from(r.bytes(o.spot_team, nSpots)),
     bidCount: Array.from(r.bytes(o.bid_count, nSpots)),

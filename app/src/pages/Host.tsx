@@ -32,6 +32,10 @@ export default function Host() {
   const [speed, setSpeed] = useState(SPEEDS[1].ms);
   const [format, setFormat] = useState<0 | 1>(0);
   const [auction, setAuction] = useState(0); // seconds; 0 = fixed price
+  const [startHours, setStartHours] = useState(24);
+  useEffect(() => {
+    if (startHours * 3600 <= auction + 600) setStartHours(24);
+  }, [auction]);
   const [progress, setProgress] = useState<string[] | null>(null);
   const [step, setStep] = useState(0);
   const [requesting, setRequesting] = useState(false);
@@ -80,7 +84,7 @@ export default function Host() {
     setProgress(steps);
     setStep(0);
     const ok = await s.run("Launch", async () => {
-      const groups = [[c.createBreakIx(id, shape.spots, shape.per, BigInt(Math.round(priceN * 1e6)), speed, title || "Untitled break", format, auction > 0 ? 1 : 0, auction)]];
+      const groups = [[c.createBreakIx(id, shape.spots, shape.per, BigInt(Math.round(priceN * 1e6)), speed, title || "Untitled break", format, auction > 0 ? 1 : 0, auction, startHours * 60)]];
       for (let i = 0; i < mints.length; i += 4) groups.push(mints.slice(i, i + 4).map((m, k) => c.depositCardIx(id, i + k, m)));
       groups.push(c.sealBreakIxs(id));
       await c.sendBaseMany(groups, (i) => setStep(i + 1));
@@ -173,6 +177,19 @@ export default function Host() {
               ))}
             </div>
             {auction > 0 && <span className="faint" style={{ fontSize: 12 }}>Bids are sealed inside the TEE — nobody, you included, sees an amount until the close. Winners pay the second-highest bid; your price below is the reserve.</span>}
+          </div>
+          <div className="field">
+            Start within
+            <div className="seg">
+              {[1, 6, 24, 72].filter((h) => h * 3600 > auction + 600).map((h) => (
+                <button key={h} className={startHours === h ? "on" : ""} onClick={() => setStartHours(h)}>
+                  {h < 24 ? `${h} h` : `${h / 24} day${h === 24 ? "" : "s"}`}
+                </button>
+              ))}
+            </div>
+            <span className="faint" style={{ fontSize: 12 }}>
+              Buyers see this deadline. Miss it and any buyer can start the break for you (unsold spots stay yours).
+            </span>
           </div>
           <div className="field">
             Spots × cards per spot

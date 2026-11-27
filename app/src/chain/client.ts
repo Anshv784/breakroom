@@ -560,10 +560,10 @@ export class BreakroomClient {
   // ---------------------------------------------------------------- base: host
 
   /** mode 0 = packs, 1 = random teams; sale 0 = fixed price, 1 = sealed-bid auction (auctionSecs long) */
-  createBreakIx(id: bigint, nSpots: number, perSpot: number, spotPrice: bigint, revealMs: number, title: string, mode = 0, sale = 0, auctionSecs = 0) {
+  createBreakIx(id: bigint, nSpots: number, perSpot: number, spotPrice: bigint, revealMs: number, title: string, mode = 0, sale = 0, auctionSecs = 0, startMins = 24 * 60) {
     return ix(
       "create_break",
-      { break_id: bn(id), n_spots: nSpots, per_spot: perSpot, spot_price: bn(spotPrice), reveal_ms: revealMs, title: titleBytes(title), mode, sale, auction_secs: auctionSecs },
+      { break_id: bn(id), n_spots: nSpots, per_spot: perSpot, spot_price: bn(spotPrice), reveal_ms: revealMs, title: titleBytes(title), mode, sale, auction_secs: auctionSecs, start_mins: startMins },
       { host: this.me, mint: USDC_MINT, host_eata: eataPda(this.me), brk: breakPda(id), receipt: receiptPda(id), vault: vaultPda(id) },
     );
   }

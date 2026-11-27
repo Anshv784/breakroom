@@ -77,8 +77,8 @@ pub mod breakroom {
     // ---- Solana: the host builds a break
 
     #[allow(clippy::too_many_arguments)]
-    pub fn create_break(ctx: Context<CreateBreak>, break_id: u64, n_spots: u8, per_spot: u8, spot_price: u64, reveal_ms: u32, title: [u8; 48], mode: u8, sale: u8, auction_secs: u32) -> Result<()> {
-        instructions::host::handle_create_break(ctx, break_id, n_spots, per_spot, spot_price, reveal_ms, title, mode, sale, auction_secs)
+    pub fn create_break(ctx: Context<CreateBreak>, break_id: u64, n_spots: u8, per_spot: u8, spot_price: u64, reveal_ms: u32, title: [u8; 48], mode: u8, sale: u8, auction_secs: u32, start_mins: u32) -> Result<()> {
+        instructions::host::handle_create_break(ctx, break_id, n_spots, per_spot, spot_price, reveal_ms, title, mode, sale, auction_secs, start_mins)
     }
 
     pub fn deposit_card(ctx: Context<DepositCard>, slot: u8) -> Result<()> {

@@ -10,6 +10,7 @@ import { USDC_MINT } from "../app/src/chain/config";
 const A = admin();
 const H = clientFor(testKey("host"));
 H.session = testKey("host-session");
+if ((await H.fetchProfile())?.agent.equals(H.session.publicKey) !== true) await H.startSession(1_000_000_000n);
 const B1 = await readyBot("KAIROS");
 const B2 = await readyBot("VANTA");
 

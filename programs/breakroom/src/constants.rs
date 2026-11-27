@@ -70,6 +70,8 @@ pub const ACTION_ESCROW_INDEX: u8 = 255;
 /// Anyone may start a fully sold break this long after the last spot sold, so a host can't
 /// hold buyers' money hostage by never pressing start.
 pub const AUTO_START_SECS: i64 = 300;
+/// Longest start deadline a host may pick, in minutes (one week).
+pub const MAX_START_MINS: u32 = 10_080;
 
 // ---- devnet faucet ----
 pub const FAUCET_AMOUNT: u64 = 1_000_000_000; // 1,000 test USDC

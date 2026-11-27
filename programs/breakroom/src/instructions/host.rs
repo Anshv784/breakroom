@@ -26,7 +26,9 @@ pub fn handle_create_break(
     mode: u8,
     sale: u8,
     auction_secs: u32,
+    start_mins: u32,
 ) -> Result<()> {
+    require!((1..=MAX_START_MINS).contains(&start_mins), BreakError::BadShape);
     require!(mode <= MODE_TEAMS && sale <= SALE_AUCTION, BreakError::BadShape);
     // team mode deals the 8 elements across the spots
     require!(mode == MODE_PACKS || n_spots <= 8, BreakError::BadShape);
@@ -55,6 +57,7 @@ pub fn handle_create_break(
         b.reveal_ms = reveal_ms;
         b.title = title;
         b.created_at = now;
+        b.start_by = start_mins;
         b.status = ST_DRAFT;
         b.bump = ctx.bumps.brk;
         b.vault_bump = ctx.bumps.vault;
@@ -237,6 +240,10 @@ pub fn handle_seal_break(ctx: Context<SealBreak>) -> Result<()> {
         require!(b.deposited as usize == b.cards_total(), BreakError::BoxIncomplete);
         b.commitment = commitment(b);
         b.status = ST_SELLING;
+        // the host's start deadline counts from the moment the sale opens
+        if b.start_by > 0 {
+            b.start_by = (Clock::get()?.unix_timestamp + b.start_by as i64 * 60) as u32;
+        }
         b.break_id
     };
     let validator = ctx.accounts.validator.key();

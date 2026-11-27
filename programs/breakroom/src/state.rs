@@ -162,7 +162,10 @@ pub struct Break {
     /// Packs mode: 1 while the next pack is up and its owner may rip it (until next_reveal_ms).
     pub rip_armed: u8,
     pub auction_secs: u32,
-    pub _pad: [u8; 4],
+    /// Start deadline. At create: the minutes the host picked (1..=MAX_START_MINS; the app offers hours). At seal: turned
+    /// into a unix time (sale open + that long). Past it, with at least one spot sold, anyone may
+    /// start the break, so a host can't sit on buyers' money. 0 = none (breaks made before this).
+    pub start_by: u32,
 }
 
 impl Break {
@@ -374,7 +377,7 @@ mod layout_tests {
                 s
             }};
         }
-        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent, mode, teams_out, sale, rip_armed, auction_secs, auction_end, spot_team, bid_count, card_elem);
+        let brk = offs!(Break; break_id, spot_price, created_at, sold_out_at, shuffle_requested_at, next_reveal_ms, ended_at, host_revenue, secondary_volume, volume, fees, box_value, crank_task, host, mint, commitment, cards, card_value, card_tier, revealed, spot_owner, spot_cost, ask, bid, bidder, reserved, reserve_until, last_price, open_order, trades, title, n_spots, per_spot, n_cards, deposited, status, sold, cursor, trade_head, n_trades, reveal_ms, bump, vault_bump, seed_source, settle_sent, mode, teams_out, sale, rip_armed, auction_secs, start_by, auction_end, spot_team, bid_count, card_elem);
         let trade = offs!(Trade; price, ts, buyer, seller, spot, kind);
         let receipt = offs!(Receipt; break_id, host_paid, settled_at, host, cards, recipient, claimed, n_cards, settled, bump);
         let deck = offs!(Deck; magic, seeded, break_id, randomness, order, spot_elems);

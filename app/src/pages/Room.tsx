@@ -328,6 +328,11 @@ function RoomHeader({ b, names, rep }: { b: BreakState; names: (k: any) => strin
         <StatusChip status={b.status} />
         {b.mode === 1 && <span className="chip" title="VRF deals the 8 elements across the spots">Random teams</span>}
         {b.sale === 1 && <span className="chip sale" title="Bids are sealed inside the TEE until the close">Sealed auction · {left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "closing"}</span>}
+        {b.status === ST.SELLING && b.startBy > 10_080 && (
+          <span className="chip" title="If the host hasn't started by then, any buyer can start the break">
+            starts by {new Date(b.startBy * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}
+          </span>
+        )}
         {b.seedSource === 1 && <span className="chip" title="Shuffle seeded by MagicBlock VRF">VRF seed</span>}
         {b.seedSource === 2 && <span className="chip" style={{ color: "var(--warn)" }} title="VRF was late; the TEE seeded the shuffle">TEE seed</span>}
         <a className="chip" href={`#/verify/${b.breakId}`}>Verify ↗</a>
@@ -832,6 +837,9 @@ function Controls({ b }: { b: BreakState }) {
     if (ok) st.toast("ok", label);
   };
   const soldOutWait = b.status === ST.SELLING && b.sold === b.nSpots && now / 1000 > b.soldOutAt + 300;
+  // the host's start deadline (a unix time once the sale is open; 0 on older breaks)
+  const deadline = b.status === ST.SELLING && b.startBy > 10_080 ? b.startBy : 0;
+  const overdue = deadline > 0 && b.sold > 0 && now / 1000 >= deadline;
   const vrfLate = b.status === ST.SHUFFLING && now / 1000 > b.shuffleRequestedAt + 45;
   const revealLate = b.status === ST.LIVE && now > b.nextRevealMs + 5000;
   const mine = receipt?.settled && c ? receipt.recipient.map((x, i) => (x?.equals(c.me) ? i : -1)).filter((i) => i >= 0) : [];
@@ -853,12 +861,23 @@ function Controls({ b }: { b: BreakState }) {
     body = <div className="muted" style={{ fontSize: 13 }}>Bidding is open. Pick a spot and place a sealed bid.</div>;
   else if (b.status === ST.SELLING && isHost)
     body = (
-      <button className="btn primary lg" style={{ width: "100%" }} disabled={busy || b.sold === 0 || !r.ready} onClick={() => act("Break started — VRF shuffling", () => c!.sendSession([c!.startBreakIx(b.breakId)]))}>
-        {b.sold === 0 ? "Start once a spot sells" : `Start the break (${b.nSpots - b.sold} unsold → you)`}
-      </button>
+      <div style={{ display: "grid", gap: 8 }}>
+        <button className="btn primary lg" style={{ width: "100%" }} disabled={busy || b.sold === 0 || !r.ready} onClick={() => act("Break started — VRF shuffling", () => c!.sendSession([c!.startBreakIx(b.breakId)]))}>
+          {b.sold === 0 ? "Start once a spot sells" : `Start the break (${b.nSpots - b.sold} unsold → you)`}
+        </button>
+        {deadline > 0 && <StartDeadline at={deadline} now={now} host />}
+      </div>
     );
   else if (soldOutWait)
     body = <button className="btn primary lg" style={{ width: "100%" }} disabled={busy || !r.ready} onClick={() => act("Break started", () => c!.sendSession([c!.startBreakIx(b.breakId)]))}>Sold out — start it</button>;
+  else if (overdue)
+    body = (
+      <div style={{ display: "grid", gap: 8 }}>
+        <div className="muted" style={{ fontSize: 13 }}>The host missed their start time. Anyone can start the break now, and unsold spots go to the host.</div>
+        <button className="btn primary lg" style={{ width: "100%" }} disabled={busy || !r.ready} onClick={() => act("Break started", () => c!.sendSession([c!.startBreakIx(b.breakId)]))}>Start the break</button>
+      </div>
+    );
+  else if (deadline > 0) body = <StartDeadline at={deadline} now={now} />;
   else if (vrfLate)
     body = <button className="btn lg" style={{ width: "100%" }} disabled={busy || !c} onClick={() => act("Seeded inside the TEE", () => c!.sendSession([c!.fallbackShuffleIx(b.breakId)]))}>VRF is late — seed inside the TEE</button>;
   else if (revealLate)
@@ -908,3 +927,21 @@ function Controls({ b }: { b: BreakState }) {
 }
 
 export { PublicKey };
+
+/** The host's start deadline, as buyers (and the host) see it. */
+function StartDeadline({ at, now, host }: { at: number; now: number; host?: boolean }) {
+  const left = Math.max(0, at - Math.floor(now / 1000));
+  const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
+  const t = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+  const when = new Date(at * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+  return (
+    <div className="start-by">
+      <div>
+        <span>{host ? "Start by" : "Host must start by"}</span>
+        <b>{when}</b>
+      </div>
+      <em className="mono">{t}</em>
+      <p>{host ? "After this, any buyer can start it for you." : "If they don't, you can start it yourself. Your spot is safe."}</p>
+    </div>
+  );
+}

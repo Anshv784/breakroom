@@ -835,6 +835,10 @@
         {
           "name": "auction_secs",
           "type": "u32"
+        },
+        {
+          "name": "start_mins",
+          "type": "u32"
         }
       ]
     },
@@ -4607,13 +4611,13 @@
             "type": "u32"
           },
           {
-            "name": "_pad",
-            "type": {
-              "array": [
-                "u8",
-                4
-              ]
-            }
+            "name": "start_by",
+            "docs": [
+              "Start deadline. At create: the minutes the host picked (1..=MAX_START_MINS; the app offers hours). At seal: turned",
+              "into a unix time (sale open + that long). Past it, with at least one spot sold, anyone may",
+              "start the break, so a host can't sit on buyers' money. 0 = none (breaks made before this)."
+            ],
+            "type": "u32"
           }
         ]
       }

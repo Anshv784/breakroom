@@ -13,7 +13,7 @@ const nBots = Number(process.argv[process.argv.indexOf("--bots") + 1] || 6);
 const buyOpen = process.argv.includes("--buy-open");
 const A = admin();
 const bots: { name: string; c: BreakroomClient }[] = [];
-for (const name of BOT_NAMES.slice(0, nBots)) bots.push({ name, c: await readyBot(name, 30_000_000n) });
+for (const name of BOT_NAMES.filter((x) => x !== process.env.SKIP).slice(0, nBots)) bots.push({ name, c: await readyBot(name, 30_000_000n) });
 const byKey = new Map(bots.map((x) => [x.c.me.toBase58(), x]));
 const usd = (n: number) => BigInt(Math.max(1_000_000, Math.round(n * 100) * 10_000)); // cents, >= $1
 const jitter = (a: number, b: number) => a + Math.random() * (b - a);
